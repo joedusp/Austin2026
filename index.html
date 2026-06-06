@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Austin 2026">
+<title>Austin Trip 2026</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- ============================================================
+     FIREBASE CONFIG — substitua os valores abaixo pelos seus
+     do console.firebase.google.com
+     ============================================================ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyBeJy6LLPbYMz6P4TWh4uifHgP7_2Jc4p4",
+  authDomain:        "austin-trip-2026.firebaseapp.com",
+  projectId:         "austin-trip-2026",
+  storageBucket:     "austin-trip-2026.firebasestorage.app",
+  messagingSenderId: "835005359085",
+  appId:             "1:835005359085:web:071867a96a7f57fc163de4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── helpers ──────────────────────────────────────────────────
+function dateKey(date){ return date.replace('/',''); }
+
+async function loadDay(date){
+  try{
+    const ref = doc(db, "austin2026", dateKey(date));
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : { stops:{}, avulsos:[] };
+  }catch(e){ return { stops:{}, avulsos:[] }; }
+}
+
+async function saveDay(date, data){
+  try{
+    const ref = doc(db, "austin2026", dateKey(date));
+    await setDoc(ref, data, { merge: true });
+  }catch(e){ console.error("Erro ao salvar:", e); }
+}
+
+// expõe para o código global
+window.DB = { loadDay, saveDay };
+window.DB_READY = true;
+window.dispatchEvent(new Event('db-ready'));
+</script>
+<!-- ============================================================ -->
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0D1B2A;--surf:#1A2E42;--card:#1F3347;
+  --or:#E8733A;--orl:#F5A67A;--gold:#D4A843;
+  --tx:#F0EDE8;--mt:#8FA3B8;--bd:#2A4560;
+  --gr:#4CAF80;--rd:#E25A5A;
+}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;max-width:480px;margin:0 auto}
+.hdr{background:var(--surf);border-bottom:1px solid var(--bd);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.hdr-title{font-size:15px;font-weight:600;color:var(--or)}
+.hdr-sub{font-size:11px;color:var(--mt);margin-top:1px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--mt);display:inline-block;margin-left:6px;transition:background .3s}
+.sync-dot.ok{background:var(--gr)}
+.sync-dot.err{background:var(--rd)}
+.wpill{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:5px 11px;font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--tx)}
+.wpill span{color:var(--gold)}
+.nav{background:var(--surf);border-bottom:1px solid var(--bd);display:flex;position:sticky;top:57px;z-index:99}
+.nav-btn{flex:1;padding:10px 4px;font-size:11px;color:var(--mt);border-bottom:2px solid transparent;cursor:pointer;text-align:center;transition:all .15s;line-height:1.4}
+.nav-btn.active{color:var(--or);border-bottom-color:var(--or)}
+.tot-bar{background:var(--surf);border-bottom:1px solid var(--bd);padding:8px 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tc{background:var(--card);border-radius:8px;padding:8px 10px}
+.tc-lbl{font-size:10px;color:var(--mt);margin-bottom:2px}
+.tc-val{font-size:18px;font-weight:600;color:var(--gr)}
+.weeks{padding:10px 12px}
+.week-row{background:var(--surf);border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.week-hdr{padding:11px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.week-lbl{font-size:13px;font-weight:600;color:var(--orl)}
+.week-sub{font-size:11px;color:var(--mt);margin-top:1px}
+.week-days{border-top:1px solid var(--bd)}
+.day-row{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid var(--bd);-webkit-tap-highlight-color:transparent}
+.day-row:last-child{border-bottom:none}
+.day-lbl{font-size:13px;color:var(--tx);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.day-sub{font-size:11px;color:var(--mt);margin-top:2px}
+.tag-roteiro{font-size:10px;color:var(--or);background:rgba(232,115,58,.15);border-radius:4px;padding:1px 5px}
+.tag-chegada{font-size:10px;color:var(--gold);background:rgba(212,168,67,.15);border-radius:4px;padding:1px 5px}
+.day-content{background:var(--bg);border-top:1px solid var(--bd);padding:12px}
+.loading-day{text-align:center;padding:20px;color:var(--mt);font-size:12px}
+.alert-w{background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--gold);margin-bottom:10px;line-height:1.5;display:flex;gap:6px}
+.loc-card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:11px;margin-bottom:8px}
+.loc-card.visited{opacity:.5}
+.lc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.lc-time{font-size:11px;color:var(--mt);display:flex;align-items:center;gap:3px}
+.dur{font-size:10px;background:var(--bg);border-radius:4px;padding:1px 5px;margin-left:3px}
+.cb{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.cb-loja{background:#1A2E42;color:#F5A67A;border:1px solid #3A5070}
+.cb-comida{background:#1E2A1A;color:#4CAF80;border:1px solid #2A4A2A}
+.cb-turismo{background:#1A2040;color:#7A9FE0;border:1px solid #2A3560}
+.cb-evento{background:#2A1A0A;color:#D4A843;border:1px solid #503010}
+.lc-name{font-size:14px;font-weight:600;margin-bottom:1px}
+.lc-addr{font-size:11px;color:var(--mt);margin-bottom:6px}
+.lc-tip{font-size:11px;color:var(--orl);background:rgba(232,115,58,.08);border-left:2px solid var(--or);padding:5px 7px;border-radius:0 5px 5px 0;margin-bottom:8px;line-height:1.5}
+.lc-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
+.btn-maps{background:var(--or);color:#fff;border:none;border-radius:7px;padding:6px 11px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;font-weight:500}
+.btn-site{background:transparent;color:var(--mt);border:1px solid var(--bd);border-radius:7px;padding:6px 11px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none}
+.btn-chk{margin-left:auto;background:transparent;border:1.5px solid var(--bd);border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mt);font-size:14px;flex-shrink:0}
+.btn-chk.checked{background:var(--gr);border-color:var(--gr);color:#fff}
+.exp-sec{border-top:1px solid var(--bd);padding-top:8px;margin-top:4px}
+.exp-row{display:flex;gap:5px;align-items:center;margin-bottom:6px}
+.inp-num{background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:12px;padding:6px 8px;width:90px}
+.inp-txt{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:12px;padding:6px 8px}
+.btn-ae{background:var(--gr);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center}
+.exp-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bd);font-size:11px}
+.exp-item:last-child{border-bottom:none}
+.exp-val{color:var(--gr);font-weight:500}
+.btn-del{background:none;border:none;color:var(--rd);cursor:pointer;font-size:14px;padding:0 2px}
+.lc-tot{font-size:11px;color:var(--mt);text-align:right;margin-top:4px}
+.lc-tot span{color:var(--gr);font-weight:500}
+.note-btn{background:none;border:none;color:var(--mt);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:0;margin-top:6px}
+.note-ta{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:12px;padding:6px 8px;margin-top:5px;resize:none;line-height:1.4}
+.avulso-sec{background:var(--surf);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:10px}
+.av-title{font-size:12px;color:var(--mt);margin-bottom:8px;display:flex;align-items:center;gap:4px}
+.cat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-bottom:8px}
+.cat-btn{background:var(--card);border:1px solid var(--bd);border-radius:7px;padding:7px 8px;font-size:11px;cursor:pointer;color:var(--tx);text-align:left;display:flex;align-items:center;gap:5px;transition:border-color .15s;-webkit-tap-highlight-color:transparent}
+.cat-btn.sel{border-color:var(--or);color:var(--or)}
+.av-input-row{display:flex;gap:5px;margin-bottom:6px}
+.av-input-row input{background:var(--bg);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-size:12px;padding:6px 8px}
+.btn-av{background:var(--or);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:500;white-space:nowrap}
+.av-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bd);font-size:11px}
+.av-item:last-child{border-bottom:none}
+.av-cat{color:var(--mt);font-size:10px}
+.av-val{color:var(--gr);font-weight:500}
+.acum-bar{background:rgba(75,175,128,.08);border:1px solid rgba(75,175,128,.2);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--mt);text-align:center;margin-top:4px}
+.acum-bar strong{color:var(--gr)}
+.rel-content{padding:12px}
+.rel-section{margin-bottom:18px}
+.rel-title{font-size:13px;font-weight:600;color:var(--orl);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.rel-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.rel-row:last-child{border-bottom:none}
+.rel-bar-wrap{height:6px;background:var(--bd);border-radius:3px;flex:1;margin:0 10px}
+.rel-bar{height:6px;background:var(--or);border-radius:3px}
+.rel-val{color:var(--gr);font-weight:500;min-width:60px;text-align:right}
+.filter-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.filter-btn{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:5px 10px;font-size:11px;cursor:pointer;color:var(--mt)}
+.filter-btn.sel{border-color:var(--or);color:var(--or)}
+.filter-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px}
+.filter-item:last-child{border-bottom:none}
+.filter-item-meta{font-size:10px;color:var(--mt);margin-top:1px}
+.pie-wrap{width:180px;height:180px;margin:0 auto 12px}
+.pie-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;margin-top:8px}
+.pie-leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt)}
+.pie-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.empty-note{text-align:center;color:var(--mt);font-size:12px;padding:16px 0}
+.cambio-content{padding:14px}
+.cambio-card{background:var(--surf);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px}
+.cambio-rate{font-size:30px;font-weight:600;color:var(--gold);text-align:center;margin:8px 0 4px}
+.cambio-sub{font-size:11px;color:var(--mt);text-align:center;margin-bottom:14px}
+.conv-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.conv-row input{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:16px;padding:9px 10px;text-align:right}
+.conv-lbl{font-size:12px;color:var(--mt);min-width:32px;font-weight:500}
+.conv-result{background:var(--card);border-radius:8px;padding:10px;text-align:center;font-size:22px;font-weight:600;color:var(--gr)}
+.conv-result-lbl{font-size:11px;color:var(--mt);margin-top:2px;text-align:center;margin-bottom:12px}
+.btn-refresh{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:9px;font-size:12px;color:var(--mt);cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+.exp-btn{width:calc(100% - 28px);margin:8px 14px;background:var(--surf);border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:12px;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.exp-box{margin:0 14px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:11px;color:var(--mt);white-space:pre-wrap;line-height:1.6}
+.install-tip{background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mt);line-height:1.6;margin:10px 12px 0}
+.install-tip strong{color:var(--gold)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-title">
+      <i class="ti ti-map-pin"></i> Austin Trip 2026
+      <span class="sync-dot" id="sync-dot" title="Status Firebase"></span>
+    </div>
+    <div class="hdr-sub">07/06 – 02/07 · Texas, USA</div>
+  </div>
+  <div class="wpill" onclick="fetchWeather()">
+    <i class="ti ti-cloud"></i>
+    <span id="wtxt">--°C</span>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-btn active" onclick="showTab('roteiro')" id="nav-roteiro"><i class="ti ti-calendar"></i><br>Roteiro</div>
+  <div class="nav-btn" onclick="showTab('relatorio')" id="nav-relatorio"><i class="ti ti-chart-pie"></i><br>Relatório</div>
+  <div class="nav-btn" onclick="showTab('cambio')" id="nav-cambio"><i class="ti ti-currency-dollar"></i><br>Câmbio</div>
+</div>
+
+<div class="tot-bar">
+  <div class="tc"><div class="tc-lbl">Semana aberta</div><div class="tc-val" id="tot-week">$0.00</div></div>
+  <div class="tc"><div class="tc-lbl">Total viagem</div><div class="tc-val" id="tot-trip">$0.00</div></div>
+</div>
+
+<div id="tab-roteiro">
+  <div class="install-tip"><strong>📱 Instalar no iPhone:</strong> Safari → <strong>Compartilhar</strong> → <strong>"Adicionar à Tela de Início"</strong></div>
+  <div class="weeks" id="weeks-container"></div>
+  <button class="exp-btn" onclick="exportar()"><i class="ti ti-download"></i> Exportar resumo de gastos</button>
+  <div class="exp-box" id="exp-box" style="display:none"></div>
+</div>
+
+<div id="tab-relatorio" style="display:none">
+  <div class="rel-content" id="rel-content"></div>
+</div>
+
+<div id="tab-cambio" style="display:none">
+  <div class="cambio-content">
+    <div class="cambio-card">
+      <div style="font-size:12px;color:var(--mt);text-align:center;font-weight:500">USD → BRL</div>
+      <div class="cambio-rate" id="cambio-rate">--</div>
+      <div class="cambio-sub" id="cambio-time">Toque para atualizar</div>
+      <div class="conv-row">
+        <div class="conv-lbl">USD</div>
+        <input type="number" id="conv-usd" placeholder="0.00" min="0" step="0.01" oninput="convertUSD()">
+      </div>
+      <div class="conv-result" id="conv-brl-result">R$ --</div>
+      <div class="conv-result-lbl">em Reais</div>
+      <div class="conv-row" style="margin-top:10px">
+        <div class="conv-lbl">BRL</div>
+        <input type="number" id="conv-brl" placeholder="0.00" min="0" step="0.01" oninput="convertBRL()">
+      </div>
+      <div class="conv-result" id="conv-usd-result">$ --</div>
+      <div class="conv-result-lbl">em Dólares</div>
+      <button class="btn-refresh" onclick="fetchCambio()"><i class="ti ti-refresh"></i> Atualizar cotação</button>
+    </div>
+    <div class="cambio-card" style="font-size:12px;color:var(--mt);line-height:1.7">
+      <div style="color:var(--orl);font-size:13px;font-weight:600;margin-bottom:6px"><i class="ti ti-info-circle"></i> Sobre a cotação</div>
+      Cotação comercial via API pública. Pode variar do dólar turismo praticado em cartões e casas de câmbio. Use como referência — verifique sempre com seu banco ou cartão.
+    </div>
+  </div>
+</div>
+
+<script>
+// ── cache local para totais (evita re-fetch constante) ─────────
+const CACHE = {};
+
+const CATS=[
+  {id:'gas', icon:'ti-gas-station', label:'Gasolina',      color:'#E8733A'},
+  {id:'mkt', icon:'ti-shopping-cart',label:'Mercado',      color:'#4CAF80'},
+  {id:'park',icon:'ti-parking',     label:'Estacionamento',color:'#5B9BD5'},
+  {id:'farm',icon:'ti-pill',        label:'Farmácia',      color:'#D4A843'},
+  {id:'cafe',icon:'ti-coffee',      label:'Café/Lanche',   color:'#C97BC0'},
+  {id:'souv',icon:'ti-star',        label:'Souvenir',      color:'#4ECDC4'},
+  {id:'uber',icon:'ti-car',         label:'Transporte',    color:'#E25A5A'},
+  {id:'pres',icon:'ti-gift',        label:'Presentes',     color:'#F5A67A'},
+  {id:'outro',icon:'ti-dots',       label:'Outros',        color:'#8FA3B8'},
+];
+
+const ROTEIRO={
+  '07/06':{alert:'Dia de chegada — bem-vindo ao Texas! 🤠', stops:[]},
+  '08/06':{alert:null,stops:[
+    {time:'07:00',dur:'60min',name:'First Watch',addr:'2525 W Anderson Ln',cat:'comida',tip:'Fecha às 14h30! Peça o Million Dollar Bacon.',maps:'https://maps.google.com/?q=First+Watch+2525+W+Anderson+Ln+Austin+TX',site:'https://www.firstwatch.com'},
+    {time:'09:00',dur:'60min',name:'Ross Dress for Less',addr:'4501 W Braker Ln',cat:'loja',tip:'Mais barato do cluster. Garimpe aqui antes das lojas mais caras.',maps:'https://maps.google.com/?q=Ross+Dress+for+Less+4501+W+Braker+Ln+Austin+TX',site:'https://www.rossstores.com'},
+    {time:'09:45',dur:'60min',name:"Dick's Sporting Goods",addr:'3210 Kramer Ln',cat:'loja',tip:'Artigos esportivos. 5 min da Ross.',maps:"https://maps.google.com/?q=Dick's+Sporting+Goods+3210+Kramer+Ln+Austin+TX",site:'https://www.dickssportinggoods.com'},
+    {time:'10:30',dur:'45min',name:'Apple Store – The Domain',addr:'3121 Palm Way',cat:'loja',tip:'Compare preços com o Brasil.',maps:'https://maps.google.com/?q=Apple+Store+Domain+Northside+Austin+TX',site:'https://www.apple.com/retail/domainnorthside'},
+    {time:'11:30',dur:'90min',name:'Barnes & Noble + GameStop',addr:'10000 Research Blvd',cat:'loja',tip:'Lado a lado no Arboretum. B&N tem Starbucks interno.',maps:'https://maps.google.com/?q=Barnes+Noble+10000+Research+Blvd+Austin+TX',site:'https://stores.barnesandnoble.com/store/2536'},
+    {time:'13:30',dur:'90min',name:'Nordstrom Rack',addr:'9607 Research Blvd',cat:'loja',tip:'Entra depois da Ross. Roupas e calçados com desconto.',maps:'https://maps.google.com/?q=Nordstrom+Rack+9607+Research+Blvd+Austin+TX',site:'https://stores.nordstromrack.com'},
+    {time:'18:00',dur:'90min',name:"BJ's Restaurant & Brewhouse",addr:'10515 MoPac Expy',cat:'comida',tip:'Hambúrgueres, pizza, Pizookie. Fecha meia-noite.',maps:"https://maps.google.com/?q=BJ's+Restaurant+Brewhouse+Austin+TX",site:'http://www.bjsrestaurants.com'},
+  ]},
+  '09/06':{alert:'Saída de Austin às 07h45. Descanse bem na véspera.',stops:[
+    {time:'08:30',dur:'45min',name:"Buc-ee's – New Braunfels",addr:'2760 I-35, New Braunfels TX',cat:'comida',tip:'Parada na ida! Brisket Sandwich Tripple — pedida da sua colega.',maps:"https://maps.google.com/?q=Buc-ee's+New+Braunfels+TX",site:'http://www.buc-ees.com'},
+    {time:'10:00',dur:'90min',name:'The Alamo',addr:'300 Alamo Plaza, San Antonio TX',cat:'turismo',tip:'Entrada gratuita. Chegue cedo — fila cresce depois das 11h.',maps:'https://maps.google.com/?q=The+Alamo+San+Antonio+TX',site:'https://www.thealamo.org'},
+    {time:'11:45',dur:'180min',name:'San Antonio River Walk',addr:'San Antonio, TX',cat:'turismo',tip:'3 min do Alamo. Almoço + passeio de barco pelo rio.',maps:'https://maps.google.com/?q=San+Antonio+River+Walk+TX',site:'https://www.thesanantonioriverwalk.com'},
+  ]},
+  '10/06':{alert:null,stops:[
+    {time:'10:00',dur:'180min',name:'Round Rock Premium Outlets',addr:'4401 I-35 N, Round Rock TX',cat:'loja',tip:'Nike, Adidas, Under Armour, Kate Spade. Fecha às 20h.',maps:'https://maps.google.com/?q=Round+Rock+Premium+Outlets+TX',site:'https://www.premiumoutlets.com/outlet/round-rock'},
+    {time:'13:30',dur:'60min',name:'Almoço no Outlet',addr:'Round Rock Premium Outlets',cat:'comida',tip:'Várias opções dentro do outlet.',maps:'https://maps.google.com/?q=Round+Rock+Premium+Outlets+TX',site:null},
+    {time:'18:30',dur:'120min',name:'The Oasis on Lake Travis',addr:'6550 Comanche Trail, Austin TX',cat:'comida',tip:'Pôr do sol ~20h15 em junho. Sino ao pôr do sol é tradição. Reserve mesa!',maps:'https://maps.google.com/?q=The+Oasis+on+Lake+Travis+Austin+TX',site:'http://www.oasis-austin.com'},
+  ]},
+  '11/06':{alert:'Duck Adventures funciona 11h–14h em dias úteis. Reserve em austinducks.com.',stops:[
+    {time:'07:00',dur:'90min',name:'Texas State Capitol',addr:'1100 Congress Ave',cat:'turismo',tip:'Tour guiado gratuito ~45 min. Pouco movimento cedo.',maps:'https://maps.google.com/?q=Texas+State+Capitol+Austin+TX',site:'https://tspb.texas.gov/prop/tc/tc/capitol.html'},
+    {time:'11:00',dur:'90min',name:'Austin Duck Adventures',addr:'103 E 5th St',cat:'turismo',tip:'Reserve em austinducks.com! Tour anfíbio ~80 min. Imperdível.',maps:'https://maps.google.com/?q=Austin+Duck+Adventures+Austin+TX',site:'https://austinducks.com'},
+    {time:'12:45',dur:'60min',name:'NADC Burger',addr:'1007 E 6th St',cat:'comida',tip:'Wagyu beef. Sem picante ("no spice"). Beast Mode fries obrigatório!',maps:'https://maps.google.com/?q=NADC+Burger+Austin+TX',site:'https://www.nadcburger.com'},
+    {time:'15:00',dur:'90min',name:"Mozart's Coffee Roasters",addr:'3825 Lake Austin Blvd',cat:'comida',tip:'Café à beira do Lago Austin. Vista linda ao entardecer.',maps:"https://maps.google.com/?q=Mozart's+Coffee+Austin+TX",site:'https://mozartscoffee.com'},
+  ]},
+  '12/06':{alert:null,stops:[
+    {time:'10:00',dur:'45min',name:'Five Below',addr:'1201 Barbara Jordan Blvd',cat:'loja',tip:'Tudo por até $5. Eletrônicos, snacks, quinquilharias.',maps:'https://maps.google.com/?q=Five+Below+Austin+TX',site:'https://www.fivebelow.com'},
+  ]},
+  '13/06':{alert:null,stops:[
+    {time:'12:15',dur:'210min',name:'Austin Burger Bash 2026 ⭐',addr:'Moody Amphitheater, 1401 Trinity St',cat:'evento',tip:'$45/pessoa. 25+ vendors: JewBoy, Loro, Gimme Burger + mais. Drinks, fries, música ao vivo. 12h30–16h.',maps:'https://maps.google.com/?q=Moody+Amphitheater+Austin+TX',site:'https://austinmonthly.com'},
+  ]},
+};
+
+function genDays(){
+  const days=[];
+  for(let d=new Date(2026,5,7);d<=new Date(2026,6,2);d.setDate(d.getDate()+1)){
+    const dd=String(d.getDate()).padStart(2,'0');
+    const mm=String(d.getMonth()+1).padStart(2,'0');
+    const date=`${dd}/${mm}`;
+    days.push({date,month:d.getMonth(),day:d.getDate(),roteiro:ROTEIRO[date]||null});
+  }
+  return days;
+}
+function genWeeks(days){
+  return[
+    {label:'S1 — 07 a 13/06',days:days.slice(0,7)},
+    {label:'S2 — 14 a 20/06',days:days.slice(7,14)},
+    {label:'S3 — 21 a 27/06',days:days.slice(14,21)},
+    {label:'S4 — 28/06 a 02/07',days:days.slice(21)},
+  ];
+}
+const ALL_DAYS=genDays();
+const WEEKS=genWeeks(ALL_DAYS);
+const WK=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+let openWeeks={0:true};
+let openDays={};
+let selCats={};
+let currentWeekIdx=0;
+let usdBrl=null;
+let pieChart=null;
+let filterCat=null;
+let dbReady=false;
+
+// ── Firebase bridge ───────────────────────────────────────────
+function setSyncDot(state){ // 'loading'|'ok'|'err'
+  const dot=document.getElementById('sync-dot');
+  if(!dot)return;
+  dot.className='sync-dot'+(state==='ok'?' ok':state==='err'?' err':'');
+  dot.title=state==='ok'?'Firebase conectado':state==='err'?'Erro de conexão':'Sincronizando...';
+}
+
+async function dbLoad(date){
+  if(!dbReady) return CACHE[date]||{stops:{},avulsos:[]};
+  if(CACHE[date]) return CACHE[date];
+  setSyncDot('loading');
+  try{
+    const data = await window.DB.loadDay(date);
+    CACHE[date]=data;
+    setSyncDot('ok');
+    return data;
+  }catch(e){ setSyncDot('err'); return {stops:{},avulsos:[]}; }
+}
+
+async function dbSave(date, data){
+  CACHE[date]=data;
+  if(!dbReady){ setSyncDot('err'); return; }
+  setSyncDot('loading');
+  try{
+    await window.DB.saveDay(date, data);
+    setSyncDot('ok');
+  }catch(e){ setSyncDot('err'); }
+}
+
+// helpers de dados
+function getStopData(dayData, si){ return (dayData.stops&&dayData.stops[si])||{exps:[],checked:false,note:''}; }
+function getAvulsos(dayData){ return dayData.avulsos||[]; }
+
+function dayTotal(dayData, roteiro){
+  let t=0;
+  if(roteiro&&roteiro.stops) roteiro.stops.forEach((_,i)=>{ (getStopData(dayData,i).exps||[]).forEach(e=>t+=e.val); });
+  getAvulsos(dayData).forEach(a=>t+=a.val);
+  return t;
+}
+function fmt(n){ return'$'+parseFloat(n||0).toFixed(2); }
+
+// totais globais via cache
+function weekTotal(wi){ let t=0; WEEKS[wi].days.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); }); return t; }
+function tripTotal(){ let t=0; ALL_DAYS.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); }); return t; }
+function acumUntil(date){
+  let t=0;
+  for(const d of ALL_DAYS){ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); if(d.date===date)break; }
+  return t;
+}
+function updateTotals(){
+  document.getElementById('tot-trip').textContent=fmt(tripTotal());
+  document.getElementById('tot-week').textContent=fmt(weekTotal(currentWeekIdx));
+}
+
+function showTab(tab){
+  ['roteiro','relatorio','cambio'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+    document.getElementById('nav-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='relatorio')renderRel();
+}
+
+// ── render weeks ──────────────────────────────────────────────
+function renderWeeks(){
+  const c=document.getElementById('weeks-container');
+  c.innerHTML='';
+  WEEKS.forEach((w,wi)=>{
+    const wt=weekTotal(wi);
+    const div=document.createElement('div');
+    div.className='week-row';
+    const dHtml=openWeeks[wi]?w.days.map((d,di)=>dayRowHtml(d,wi,di)).join(''):'';
+    div.innerHTML=`
+      <div class="week-hdr" onclick="toggleWeek(${wi})">
+        <div><div class="week-lbl">${w.label}</div><div class="week-sub">${w.days.length} dias</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="wtot-${wi}" style="font-size:13px;color:var(--gr);font-weight:500">${wt>0?fmt(wt):''}</span>
+          <i class="ti ${openWeeks[wi]?'ti-chevron-up':'ti-chevron-down'}" style="color:var(--mt)"></i>
+        </div>
+      </div>
+      <div id="wdays-${wi}" class="week-days" style="display:${openWeeks[wi]?'block':'none'}">${dHtml}</div>`;
+    c.appendChild(div);
+  });
+}
+
+function dayRowHtml(d,wi,di){
+  const cache=CACHE[d.date];
+  const dt=cache?dayTotal(cache,d.roteiro):0;
+  const acum=cache?acumUntil(d.date):0;
+  const key=`${wi}-${di}`;
+  const wd=WK[new Date(2026,d.month,d.day).getDay()];
+  const hasR=!!d.roteiro&&d.roteiro.stops&&d.roteiro.stops.length>0;
+  const isArr=d.date==='07/06';
+  const tag=isArr?`<span class="tag-chegada">chegada</span>`:hasR?`<span class="tag-roteiro">roteiro</span>`:'';
+  return`<div id="drow-${wi}-${di}">
+    <div class="day-row" onclick="toggleDay(${wi},${di})">
+      <div>
+        <div class="day-lbl">${d.date} <span style="color:var(--mt);font-size:11px">${wd}</span> ${tag}</div>
+        <div class="day-sub" id="dsub-${wi}-${di}">${dt>0?`Gasto: ${fmt(dt)} · Acumulado: ${fmt(acum)}`:'Sem gastos registrados'}</div>
+      </div>
+      <i class="ti ${openDays[key]?'ti-chevron-up':'ti-chevron-down'}" id="dchev-${wi}-${di}" style="color:var(--mt);font-size:14px"></i>
+    </div>
+    <div id="dcontent-${wi}-${di}" style="display:${openDays[key]?'block':'none'}">
+      ${openDays[key]?`<div class="loading-day"><i class="ti ti-loader"></i> Carregando...</div>`:''}
+    </div>
+  </div>`;
+}
+
+async function renderDayContent(d,wi,di){
+  const dayData = await dbLoad(d.date);
+  const key=`${wi}-${di}`;
+  const sc=selCats[key]||null;
+  let h='<div class="day-content">';
+
+  if(d.roteiro){
+    if(d.roteiro.alert) h+=`<div class="alert-w"><i class="ti ti-alert-triangle"></i><span>${d.roteiro.alert}</span></div>`;
+    if(d.roteiro.stops&&d.roteiro.stops.length>0){
+      d.roteiro.stops.forEach((s,si)=>{
+        const sd=getStopData(dayData,si);
+        const chk=sd.checked||false;
+        const note=sd.note||'';
+        const exps=sd.exps||[];
+        const ct=exps.reduce((a,e)=>a+e.val,0);
+        const lbl={loja:'Loja',comida:'Comida',turismo:'Turismo',evento:'Evento'}[s.cat];
+        h+=`<div class="loc-card${chk?' visited':''}" id="lc-${wi}-${di}-${si}">
+          <div class="lc-top">
+            <div class="lc-time"><i class="ti ti-clock"></i>${s.time}<span class="dur">${s.dur}</span></div>
+            <span class="cb cb-${s.cat}">${lbl}</span>
+          </div>
+          <div class="lc-name">${s.name}</div>
+          <div class="lc-addr"><i class="ti ti-map-pin" style="font-size:11px"></i> ${s.addr}</div>
+          <div class="lc-tip">${s.tip}</div>
+          <div class="lc-acts">
+            <a class="btn-maps" href="${s.maps}" target="_blank"><i class="ti ti-map"></i>Maps</a>
+            ${s.site?`<a class="btn-site" href="${s.site}" target="_blank"><i class="ti ti-external-link"></i>Site</a>`:''}
+            <button class="btn-chk${chk?' checked':''}" onclick="toggleChk('${d.date}',${si},${wi},${di})"><i class="ti ti-check"></i></button>
+          </div>
+          <div class="exp-sec">
+            <div class="exp-row">
+              <input class="inp-num" type="number" id="ev-${wi}-${di}-${si}" placeholder="$ valor" min="0" step="0.01">
+              <input class="inp-txt" type="text" id="ed-${wi}-${di}-${si}" placeholder="Descrição">
+              <button class="btn-ae" onclick="addExp('${d.date}',${si},${wi},${di})"><i class="ti ti-plus"></i></button>
+            </div>
+            ${exps.map((e,ei)=>`<div class="exp-item"><span style="color:var(--mt)">${e.desc||'Gasto'}</span><div style="display:flex;align-items:center;gap:5px"><span class="exp-val">${fmt(e.val)}</span><button class="btn-del" onclick="delExp('${d.date}',${si},${ei},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}
+            ${ct>0?`<div class="lc-tot">Total aqui: <span>${fmt(ct)}</span></div>`:''}
+          </div>
+          <button class="note-btn" onclick="toggleNote(${wi},${di},${si})"><i class="ti ti-notes"></i>${note?'Ver nota':'+ Nota'}</button>
+          <div id="nwrap-${wi}-${di}-${si}" style="display:${note?'block':'none'}">
+            <textarea class="note-ta" rows="2" onchange="saveNote('${d.date}',${si},this.value,'${wi}','${di}')">${note}</textarea>
+          </div>
+        </div>`;
+      });
+    }
+  }
+
+  const avs=getAvulsos(dayData);
+  h+=`<div class="avulso-sec">
+    <div class="av-title"><i class="ti ti-wallet"></i> Gasto avulso</div>
+    <div class="cat-grid">${CATS.map(c=>`<button class="cat-btn${sc===c.id?' sel':''}" onclick="selCat('${key}','${c.id}',${wi},${di})"><i class="ti ${c.icon}" style="font-size:14px"></i>${c.label}</button>`).join('')}</div>
+    <div class="av-input-row">
+      <input type="text" id="avd-${wi}-${di}" placeholder="Descrição (opcional)" style="flex:1">
+      <input type="number" id="avv-${wi}-${di}" placeholder="$0.00" min="0" step="0.01" style="width:100px">
+      <button class="btn-av" onclick="addAv('${d.date}',${wi},${di})"><i class="ti ti-plus"></i></button>
+    </div>
+    ${avs.length?`<div>${avs.map((a,ai)=>`<div class="av-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="av-cat">${d.date}</div></div><div style="display:flex;align-items:center;gap:5px"><span class="av-val">${fmt(a.val)}</span><button class="btn-del" onclick="delAv('${d.date}',${ai},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}</div>`:''}
+  </div>`;
+
+  const dt=dayTotal(dayData,d.roteiro);
+  if(dt>0) h+=`<div class="acum-bar"><i class="ti ti-trending-up"></i> Acumulado até ${d.date}: <strong>${fmt(acumUntil(d.date))}</strong></div>`;
+  h+='</div>';
+  return h;
+}
+
+function toggleWeek(wi){
+  openWeeks[wi]=!openWeeks[wi];
+  if(openWeeks[wi])currentWeekIdx=wi;
+  updateTotals();
+  renderWeeks();
+}
+async function toggleDay(wi,di){
+  const key=`${wi}-${di}`;
+  openDays[key]=!openDays[key];
+  const dc=document.getElementById(`dcontent-${wi}-${di}`);
+  const chev=document.getElementById(`dchev-${wi}-${di}`);
+  if(chev) chev.className=`ti ${openDays[key]?'ti-chevron-up':'ti-chevron-down'}`;
+  if(!dc) return;
+  if(openDays[key]){
+    dc.style.display='block';
+    dc.innerHTML=`<div class="loading-day"><i class="ti ti-loader"></i> Carregando...</div>`;
+    dc.innerHTML=await renderDayContent(WEEKS[wi].days[di],wi,di);
+    updateTotals();
+  } else {
+    dc.style.display='none';
+  }
+}
+function toggleNote(wi,di,si){
+  const w=document.getElementById(`nwrap-${wi}-${di}-${si}`);
+  if(w) w.style.display=w.style.display==='none'?'block':'none';
+}
+function selCat(key,id,wi,di){
+  selCats[key]=selCats[key]===id?null:id;
+  const d=WEEKS[wi].days[di];
+  const dc=document.getElementById(`dcontent-${wi}-${di}`);
+  if(dc&&openDays[`${wi}-${di}`]){
+    renderDayContent(d,wi,di).then(h=>{ dc.innerHTML=h; });
+  }
+}
+
+async function addExp(date,si,wi,di){
+  const v=parseFloat(document.getElementById(`ev-${wi}-${di}-${si}`).value);
+  const desc=document.getElementById(`ed-${wi}-${di}-${si}`).value.trim();
+  if(!v||v<=0) return;
+  const data=await dbLoad(date);
+  if(!data.stops) data.stops={};
+  if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
+  data.stops[si].exps.push({val:v,desc});
+  await dbSave(date,data);
+  refreshDay(wi,di);
+}
+async function delExp(date,si,ei,wi,di){
+  const data=await dbLoad(date);
+  data.stops[si].exps.splice(ei,1);
+  await dbSave(date,data);
+  refreshDay(wi,di);
+}
+async function addAv(date,wi,di){
+  const key=`${wi}-${di}`;
+  const v=parseFloat(document.getElementById(`avv-${wi}-${di}`).value);
+  const desc=document.getElementById(`avd-${wi}-${di}`).value.trim();
+  if(!v||v<=0) return;
+  const catId=selCats[key]||'outro';
+  const catLabel=CATS.find(c=>c.id===catId)?.label||'Outros';
+  const data=await dbLoad(date);
+  if(!data.avulsos) data.avulsos=[];
+  data.avulsos.push({cat:catLabel,catId,desc,val:v});
+  await dbSave(date,data);
+  refreshDay(wi,di);
+}
+async function delAv(date,ai,wi,di){
+  const data=await dbLoad(date);
+  data.avulsos.splice(ai,1);
+  await dbSave(date,data);
+  refreshDay(wi,di);
+}
+async function toggleChk(date,si,wi,di){
+  const data=await dbLoad(date);
+  if(!data.stops) data.stops={};
+  if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
+  data.stops[si].checked=!data.stops[si].checked;
+  await dbSave(date,data);
+  refreshDay(wi,di);
+}
+async function saveNote(date,si,val,wi,di){
+  const data=await dbLoad(date);
+  if(!data.stops) data.stops={};
+  if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
+  data.stops[si].note=val;
+  await dbSave(date,data);
+}
+
+async function refreshDay(wi,di){
+  const d=WEEKS[wi].days[di];
+  const dc=document.getElementById(`dcontent-${wi}-${di}`);
+  if(dc&&openDays[`${wi}-${di}`]) dc.innerHTML=await renderDayContent(d,wi,di);
+  const data=CACHE[d.date];
+  const dt=data?dayTotal(data,d.roteiro):0;
+  const acum=acumUntil(d.date);
+  const sub=document.getElementById(`dsub-${wi}-${di}`);
+  if(sub) sub.textContent=dt>0?`Gasto: ${fmt(dt)} · Acumulado: ${fmt(acum)}`:'Sem gastos registrados';
+  const wtotEl=document.getElementById(`wtot-${wi}`);
+  const wt=weekTotal(wi);
+  if(wtotEl) wtotEl.textContent=wt>0?fmt(wt):'';
+  updateTotals();
+}
+
+// ── Relatório ─────────────────────────────────────────────────
+function renderRel(){
+  const catTotals={};
+  CATS.forEach(c=>catTotals[c.id]=0);
+  ALL_DAYS.forEach(d=>{
+    const data=CACHE[d.date];
+    if(!data) return;
+    if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((_,i)=>{ (getStopData(data,i).exps||[]).forEach(e=>catTotals['outro']+=e.val); });
+    getAvulsos(data).forEach(a=>{ const id=a.catId&&catTotals[a.catId]!==undefined?a.catId:'outro'; catTotals[id]+=a.val; });
+  });
+  const trip=tripTotal();
+  const maxC=Math.max(...Object.values(catTotals),0.01);
+  const pieData=CATS.filter(c=>catTotals[c.id]>0);
+
+  let filItems='';
+  if(filterCat){
+    ALL_DAYS.forEach(d=>{
+      const data=CACHE[d.date];
+      if(!data) return;
+      if(filterCat==='outro'&&d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((s,i)=>{ (getStopData(data,i).exps||[]).forEach(e=>{ filItems+=`<div class="filter-item"><div><div>${s.name}</div><div class="filter-item-meta">${d.date}</div></div><span style="color:var(--gr);font-weight:500">${fmt(e.val)}</span></div>`; }); });
+      getAvulsos(data).forEach(a=>{ if((a.catId||'outro')===filterCat) filItems+=`<div class="filter-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="filter-item-meta">${d.date}</div></div><span style="color:var(--gr);font-weight:500">${fmt(a.val)}</span></div>`; });
+    });
+  }
+
+  document.getElementById('rel-content').innerHTML=`
+  <div class="rel-section">
+    <div class="rel-title"><i class="ti ti-trending-up"></i> Totais por semana</div>
+    ${WEEKS.map((w,wi)=>`<div class="rel-row"><span>${w.label}</span><span class="rel-val">${fmt(weekTotal(wi))}</span></div>`).join('')}
+    <div class="rel-row" style="border-top:1px solid var(--or);margin-top:4px;padding-top:8px"><span style="font-weight:600">Total geral</span><span class="rel-val" style="color:var(--or)">${fmt(trip)}</span></div>
+  </div>
+  <div class="rel-section">
+    <div class="rel-title"><i class="ti ti-chart-pie"></i> Por categoria</div>
+    ${trip>0?`<div class="pie-wrap"><canvas id="pieCanvas" width="180" height="180"></canvas></div><div class="pie-legend">${pieData.map(c=>`<div class="pie-leg-item"><div class="pie-dot" style="background:${c.color}"></div>${c.label}: ${fmt(catTotals[c.id])}</div>`).join('')}</div>`:'<div class="empty-note">Nenhum gasto registrado ainda</div>'}
+    ${CATS.map(c=>`<div class="rel-row"><span>${c.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(catTotals[c.id]/maxC*100).toFixed(1)}%"></div></div><span class="rel-val">${fmt(catTotals[c.id])}</span></div>`).join('')}
+  </div>
+  <div class="rel-section">
+    <div class="rel-title"><i class="ti ti-filter"></i> Filtrar por categoria</div>
+    <div class="filter-row">
+      ${CATS.map(c=>`<button class="filter-btn${filterCat===c.id?' sel':''}" onclick="setFilter('${c.id}')">${c.label}</button>`).join('')}
+      ${filterCat?`<button class="filter-btn" onclick="setFilter(null)" style="border-color:var(--rd);color:var(--rd)"><i class="ti ti-x"></i> Limpar</button>`:''}
+    </div>
+    ${filterCat?(filItems||'<div class="empty-note">Nenhum item nessa categoria</div>'):'<div class="empty-note">Selecione uma categoria para ver os lançamentos</div>'}
+  </div>`;
+
+  if(trip>0&&pieData.length){
+    const ctx=document.getElementById('pieCanvas');
+    if(ctx){ if(pieChart)pieChart.destroy(); pieChart=new Chart(ctx,{type:'pie',data:{labels:pieData.map(c=>c.label),datasets:[{data:pieData.map(c=>catTotals[c.id]),backgroundColor:pieData.map(c=>c.color),borderWidth:0}]},options:{plugins:{legend:{display:false}},animation:{duration:300}}}); }
+  }
+}
+function setFilter(cat){ filterCat=cat; renderRel(); }
+
+// ── Câmbio ────────────────────────────────────────────────────
+async function fetchCambio(){
+  const el=document.getElementById('cambio-rate');
+  const ts=document.getElementById('cambio-time');
+  el.textContent='...'; ts.textContent='Atualizando...';
+  try{
+    const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    const data=await r.json();
+    usdBrl=data.rates.BRL;
+    el.textContent=`R$ ${usdBrl.toFixed(4)}`;
+    ts.textContent=`Atualizado · 1 USD = R$ ${usdBrl.toFixed(2)}`;
+    convertUSD(); convertBRL();
+  }catch(e){ el.textContent='Erro'; ts.textContent='Sem conexão. Tente novamente.'; }
+}
+function convertUSD(){ const v=parseFloat(document.getElementById('conv-usd').value)||0; document.getElementById('conv-brl-result').textContent=usdBrl?`R$ ${(v*usdBrl).toFixed(2)}`:'R$ --'; }
+function convertBRL(){ const v=parseFloat(document.getElementById('conv-brl').value)||0; document.getElementById('conv-usd-result').textContent=usdBrl?`$ ${(v/usdBrl).toFixed(2)}`:'$ --'; }
+
+// ── Exportar ──────────────────────────────────────────────────
+function exportar(){
+  const box=document.getElementById('exp-box');
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  let txt='=== AUSTIN TRIP 2026 — RESUMO DE GASTOS ===\n\n';
+  let grand=0;
+  WEEKS.forEach((w,wi)=>{
+    const wt=weekTotal(wi); grand+=wt;
+    txt+=`${w.label}\n`;
+    w.days.forEach(d=>{
+      const data=CACHE[d.date];
+      if(!data) return;
+      const dt=dayTotal(data,d.roteiro);
+      if(!dt) return;
+      txt+=`  ${d.date}\n`;
+      if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((s,i)=>{ const e=(getStopData(data,i).exps||[]); if(e.length){ txt+=`    ${s.name}\n`; e.forEach(x=>txt+=`      ${x.desc||'Gasto'}: ${fmt(x.val)}\n`); } });
+      getAvulsos(data).forEach(a=>txt+=`    ${a.cat}${a.desc?' — '+a.desc:''}: ${fmt(a.val)}\n`);
+      txt+=`    Dia: ${fmt(dt)} · Acumulado: ${fmt(acumUntil(d.date))}\n`;
+    });
+    txt+=`  Subtotal semana: ${fmt(wt)}\n\n`;
+  });
+  txt+=`TOTAL GERAL: ${fmt(grand)}`;
+  box.textContent=txt; box.style.display='block';
+}
+
+// ── Clima ─────────────────────────────────────────────────────
+async function fetchWeather(){
+  const el=document.getElementById('wtxt'); el.textContent='...';
+  try{ const r=await fetch('https://wttr.in/Austin,TX?format=%C+%t'); const t=await r.text(); el.textContent=t.trim().replace('+',''); }
+  catch(e){ el.textContent='Austin TX'; }
+}
+
+// ── Init ──────────────────────────────────────────────────────
+function init(){
+  renderWeeks();
+  fetchWeather();
+  fetchCambio();
+  setSyncDot('loading');
+}
+
+window.addEventListener('db-ready', ()=>{
+  dbReady=true;
+  setSyncDot('ok');
+});
+
+init();
+</script>
+</body>
+</html>
