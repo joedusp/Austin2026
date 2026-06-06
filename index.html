@@ -897,7 +897,11 @@ async function fetchWeather(){
 
 // ── Init ──────────────────────────────────────────────────────
 function init(){
-  renderWeeks();
+  try {
+    renderWeeks();
+  } catch(e) {
+    document.getElementById('weeks-container').innerHTML = '<div style="color:#E25A5A;padding:16px;font-size:11px;word-break:break-all;line-height:1.6"><strong>ERRO:</strong> ' + e.message + '<br><br>' + (e.stack||'') + '</div>';
+  }
   fetchWeather();
   fetchCambio();
   setSyncDot('loading');
