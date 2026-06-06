@@ -692,8 +692,13 @@ function exportar(){
 // ── Clima ─────────────────────────────────────────────────────
 async function fetchWeather(){
   const el=document.getElementById('wtxt'); el.textContent='...';
-  try{ const r=await fetch('https://wttr.in/Austin,TX?format=%C+%t'); const t=await r.text(); el.textContent=t.trim().replace('+',''); }
-  catch(e){ el.textContent='Austin TX'; }
+  try{
+    const r=await fetch('https://wttr.in/Austin,TX?format=j1');
+    const d=await r.json();
+    const temp=d.current_condition[0].temp_C;
+    const desc=d.current_condition[0].weatherDesc[0].value;
+    el.textContent=desc+' '+temp+'°C';
+  }catch(e){ el.textContent='Austin TX'; }
 }
 
 // ── Init ──────────────────────────────────────────────────────
