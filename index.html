@@ -252,7 +252,16 @@ const CATS=[
   {id:'souv',icon:'ti-star',        label:'Souvenir',      color:'#4ECDC4'},
   {id:'uber',icon:'ti-car',         label:'Transporte',    color:'#E25A5A'},
   {id:'pres',icon:'ti-gift',        label:'Presentes',     color:'#F5A67A'},
+  {id:'pass', icon:'ti-ticket',     label:'Passeio',       color:'#34D399'},
+  {id:'bag',  icon:'ti-luggage',    label:'Bagagem',       color:'#A78BFA'},
   {id:'outro',icon:'ti-dots',       label:'Outros',        color:'#8FA3B8'},
+];
+
+const PESSOAS=[
+  {id:'joao', label:'João',   color:'#5B9BD5'},
+  {id:'lilian',label:'Lilian',color:'#C97BC0'},
+  {id:'diego', label:'Diego', color:'#4CAF80'},
+  {id:'geral', label:'Geral ÷3',color:'#D4A843'},
 ];
 
 const ROTEIRO={
@@ -315,10 +324,12 @@ const WK=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let openWeeks={0:true};
 let openDays={};
 let selCats={};
+let selPessoas={};
 let currentWeekIdx=0;
 let usdBrl=null;
 let pieChart=null;
 let filterCat=null;
+let filterPessoa=null;
 let dbReady=false;
 
 // ── Firebase bridge ───────────────────────────────────────────
@@ -459,12 +470,13 @@ async function renderDayContent(d,wi,di){
             <button class="btn-chk${chk?' checked':''}" onclick="toggleChk('${d.date}',${si},${wi},${di})"><i class="ti ti-check"></i></button>
           </div>
           <div class="exp-sec">
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="padding:4px 7px;font-size:10px;border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:12px"></i>${p.label}</button>`).join('')}</div>
             <div class="exp-row">
               <input class="inp-num" type="number" id="ev-${wi}-${di}-${si}" placeholder="$ valor" min="0" step="0.01">
               <input class="inp-txt" type="text" id="ed-${wi}-${di}-${si}" placeholder="Descrição">
               <button class="btn-ae" onclick="addExp('${d.date}',${si},${wi},${di})"><i class="ti ti-plus"></i></button>
             </div>
-            ${exps.map((e,ei)=>`<div class="exp-item"><span style="color:var(--mt)">${e.desc||'Gasto'}</span><div style="display:flex;align-items:center;gap:5px"><span class="exp-val">${fmt(e.val)}</span><button class="btn-del" onclick="delExp('${d.date}',${si},${ei},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}
+            ${exps.map((e,ei)=>`<div class="exp-item"><div><span style="color:var(--mt)">${e.desc||'Gasto'}</span><span style="font-size:10px;color:${PESSOAS.find(p=>p.id===e.pessoaId)?.color||'var(--gold)'};margin-left:5px">${e.pessoaLabel||'Geral ÷3'}</span></div><div style="display:flex;align-items:center;gap:5px"><span class="exp-val">${fmt(e.val)}</span><button class="btn-del" onclick="delExp('${d.date}',${si},${ei},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}
             ${ct>0?`<div class="lc-tot">Total aqui: <span>${fmt(ct)}</span></div>`:''}
           </div>
           <button class="note-btn" onclick="toggleNote(${wi},${di},${si})"><i class="ti ti-notes"></i>${note?'Ver nota':'+ Nota'}</button>
@@ -480,12 +492,13 @@ async function renderDayContent(d,wi,di){
   h+=`<div class="avulso-sec">
     <div class="av-title"><i class="ti ti-wallet"></i> Gasto avulso</div>
     <div class="cat-grid">${CATS.map(c=>`<button class="cat-btn${sc===c.id?' sel':''}" onclick="selCat('${key}','${c.id}',${wi},${di})"><i class="ti ${c.icon}" style="font-size:14px"></i>${c.label}</button>`).join('')}</div>
+    <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:13px"></i>${p.label}</button>`).join('')}</div>
     <div class="av-input-row">
       <input type="text" id="avd-${wi}-${di}" placeholder="Descrição (opcional)" style="flex:1">
       <input type="number" id="avv-${wi}-${di}" placeholder="$0.00" min="0" step="0.01" style="width:100px">
       <button class="btn-av" onclick="addAv('${d.date}',${wi},${di})"><i class="ti ti-plus"></i></button>
     </div>
-    ${avs.length?`<div>${avs.map((a,ai)=>`<div class="av-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="av-cat">${d.date}</div></div><div style="display:flex;align-items:center;gap:5px"><span class="av-val">${fmt(a.val)}</span><button class="btn-del" onclick="delAv('${d.date}',${ai},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}</div>`:''}
+    ${avs.length?`<div>${avs.map((a,ai)=>`<div class="av-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="av-cat">${d.date} · <span style="color:${PESSOAS.find(p=>p.id===a.pessoaId)?.color||'var(--gold)'}">${a.pessoaLabel||'Geral ÷3'}</span></div></div><div style="display:flex;align-items:center;gap:5px"><span class="av-val">${fmt(a.val)}</span><button class="btn-del" onclick="delAv('${d.date}',${ai},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}</div>`:''}
   </div>`;
 
   const dt=dayTotal(dayData,d.roteiro);
@@ -520,6 +533,12 @@ function toggleNote(wi,di,si){
   const w=document.getElementById(`nwrap-${wi}-${di}-${si}`);
   if(w) w.style.display=w.style.display==='none'?'block':'none';
 }
+function selPessoa(key,id,wi,di){
+  selPessoas[key]=id;
+  const d=WEEKS[wi].days[di];
+  const dc=document.getElementById(`dcontent-${wi}-${di}`);
+  if(dc&&openDays[`${wi}-${di}`]){ renderDayContent(d,wi,di).then(h=>{ dc.innerHTML=h; }); }
+}
 function selCat(key,id,wi,di){
   selCats[key]=selCats[key]===id?null:id;
   const d=WEEKS[wi].days[di];
@@ -533,10 +552,13 @@ async function addExp(date,si,wi,di){
   const v=parseFloat(document.getElementById(`ev-${wi}-${di}-${si}`).value);
   const desc=document.getElementById(`ed-${wi}-${di}-${si}`).value.trim();
   if(!v||v<=0) return;
+  const key=`${wi}-${di}`;
+  const pessoaId=selPessoas[key]||'geral';
+  const pessoaLabel=PESSOAS.find(p=>p.id===pessoaId)?.label||'Geral ÷3';
   const data=await dbLoad(date);
   if(!data.stops) data.stops={};
   if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
-  data.stops[si].exps.push({val:v,desc});
+  data.stops[si].exps.push({val:v,desc,pessoaId,pessoaLabel});
   await dbSave(date,data);
   refreshDay(wi,di);
 }
@@ -553,9 +575,11 @@ async function addAv(date,wi,di){
   if(!v||v<=0) return;
   const catId=selCats[key]||'outro';
   const catLabel=CATS.find(c=>c.id===catId)?.label||'Outros';
+  const pessoaId=selPessoas[key]||'geral';
+  const pessoaLabel=PESSOAS.find(p=>p.id===pessoaId)?.label||'Geral ÷3';
   const data=await dbLoad(date);
   if(!data.avulsos) data.avulsos=[];
-  data.avulsos.push({cat:catLabel,catId,desc,val:v});
+  data.avulsos.push({cat:catLabel,catId,desc,val:v,pessoaId,pessoaLabel});
   await dbSave(date,data);
   refreshDay(wi,di);
 }
@@ -597,6 +621,25 @@ async function refreshDay(wi,di){
 }
 
 // ── Relatório ─────────────────────────────────────────────────
+function calcPessoaTotals(){
+  const pt={joao:0,lilian:0,diego:0};
+  ALL_DAYS.forEach(d=>{
+    const data=CACHE[d.date];
+    if(!data) return;
+    if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((_,i)=>{
+      (getStopData(data,i).exps||[]).forEach(e=>{
+        if(e.pessoaId==='geral'){ pt.joao+=e.val/3; pt.lilian+=e.val/3; pt.diego+=e.val/3; }
+        else if(pt[e.pessoaId]!==undefined) pt[e.pessoaId]+=e.val;
+      });
+    });
+    getAvulsos(data).forEach(a=>{
+      if(a.pessoaId==='geral'){ pt.joao+=a.val/3; pt.lilian+=a.val/3; pt.diego+=a.val/3; }
+      else if(pt[a.pessoaId]!==undefined) pt[a.pessoaId]+=a.val;
+    });
+  });
+  return pt;
+}
+
 function renderRel(){
   const catTotals={};
   CATS.forEach(c=>catTotals[c.id]=0);
@@ -620,7 +663,24 @@ function renderRel(){
     });
   }
 
+  const pt=calcPessoaTotals();
+  const maxP=Math.max(pt.joao,pt.lilian,pt.diego,0.01);
+  const pessoasFil=filterPessoa;
+
   document.getElementById('rel-content').innerHTML=`
+  <div class="rel-section">
+    <div class="rel-title"><i class="ti ti-users"></i> Por pessoa (Geral ÷3)</div>
+    ${[{id:'joao',label:'João',color:'#5B9BD5'},{id:'lilian',label:'Lilian',color:'#C97BC0'},{id:'diego',label:'Diego',color:'#4CAF80'}].map(p=>`
+    <div class="rel-row"><span>${p.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(pt[p.id]/maxP*100).toFixed(1)}%;background:${p.color}"></div></div><span class="rel-val" style="color:${p.color}">${fmt(pt[p.id])}</span></div>`).join('')}
+  </div>
+  <div class="rel-section">
+    <div class="rel-title"><i class="ti ti-filter"></i> Filtrar por pessoa</div>
+    <div class="filter-row">
+      ${PESSOAS.map(p=>`<button class="filter-btn${filterPessoa===p.id?' sel':''}" onclick="setFilterPessoa('${p.id}')" style="${filterPessoa===p.id?'border-color:'+p.color+';color:'+p.color:''}">${p.label}</button>`).join('')}
+      ${filterPessoa?`<button class="filter-btn" onclick="setFilterPessoa(null)" style="border-color:var(--rd);color:var(--rd)"><i class="ti ti-x"></i> Limpar</button>`:''}
+    </div>
+    ${filterPessoa?(()=>{let fi='';ALL_DAYS.forEach(d=>{const data=CACHE[d.date];if(!data)return;if(d.roteiro&&d.roteiro.stops)d.roteiro.stops.forEach((s,i)=>{(getStopData(data,i).exps||[]).forEach(e=>{if(e.pessoaId===filterPessoa||(filterPessoa==='geral'&&e.pessoaId==='geral'))fi+=`<div class="filter-item"><div><div>${s.name} — ${e.desc||'Gasto'}</div><div class="filter-item-meta">${d.date}</div></div><span style="color:var(--gr);font-weight:500">${fmt(e.val)}</span></div>`;});});getAvulsos(data).forEach(a=>{if(a.pessoaId===filterPessoa||(filterPessoa==='geral'&&a.pessoaId==='geral'))fi+=`<div class="filter-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="filter-item-meta">${d.date}</div></div><span style="color:var(--gr);font-weight:500">${fmt(a.val)}</span></div>`;});});return fi||'<div class="empty-note">Nenhum item para esta pessoa</div>';})():'<div class="empty-note">Selecione uma pessoa para ver os lançamentos</div>'}
+  </div>
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-trending-up"></i> Totais por semana</div>
     ${WEEKS.map((w,wi)=>`<div class="rel-row"><span>${w.label}</span><span class="rel-val">${fmt(weekTotal(wi))}</span></div>`).join('')}
@@ -646,6 +706,7 @@ function renderRel(){
   }
 }
 function setFilter(cat){ filterCat=cat; renderRel(); }
+function setFilterPessoa(p){ filterPessoa=p; renderRel(); }
 
 // ── Câmbio ────────────────────────────────────────────────────
 async function fetchCambio(){
