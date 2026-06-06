@@ -172,6 +172,12 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .exp-box{margin:0 14px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:11px;color:var(--mt);white-space:pre-wrap;line-height:1.6}
 .install-tip{background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mt);line-height:1.6;margin:10px 12px 0}
 .install-tip strong{color:var(--gold)}
+.moeda-sel{display:flex;gap:4px;margin-bottom:6px}
+.moeda-btn{background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--mt);transition:all .15s}
+.moeda-btn.sel-usd{border-color:#5B9BD5;color:#5B9BD5}
+.moeda-btn.sel-brl{border-color:#4CAF80;color:#4CAF80}
+.gps-note{font-size:10px;color:var(--gold);padding:3px 14px;background:rgba(212,168,67,.08);border-bottom:1px solid rgba(212,168,67,.15);display:none}
+.gps-note.show{display:block}
 </style>
 </head>
 <body>
@@ -196,15 +202,17 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
   <div class="nav-btn" onclick="showTab('cambio')" id="nav-cambio"><i class="ti ti-currency-dollar"></i><br>Câmbio</div>
 </div>
 
-<div class="tot-bar">
-  <div class="tc"><div class="tc-lbl">Semana aberta</div><div class="tc-val" id="tot-week">$0.00</div></div>
-  <div class="tc"><div class="tc-lbl">Total viagem</div><div class="tc-val" id="tot-trip">$0.00</div></div>
+<div class="tot-bar" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+  <div class="tc"><div class="tc-lbl">Semana (USD)</div><div class="tc-val" id="tot-week">$0.00</div><div style="font-size:11px;color:var(--gr)" id="tot-week-brl">R$0.00</div></div>
+  <div class="tc"><div class="tc-lbl">Viagem (USD)</div><div class="tc-val" id="tot-trip">$0.00</div><div style="font-size:11px;color:var(--gr)" id="tot-trip-brl">R$0.00</div></div>
 </div>
 
 <div id="tab-roteiro">
-  <div class="install-tip"><strong>📱 Instalar no iPhone:</strong> Safari → <strong>Compartilhar</strong> → <strong>"Adicionar à Tela de Início"</strong></div>
+  <div class="gps-note" id="gps-note"><i class="ti ti-map-pin-off"></i> Localização desativada — ative nas configurações do iPhone para mostrar o clima local.</div>
+<div class="install-tip"><strong>📱 Instalar no iPhone:</strong> Safari → <strong>Compartilhar</strong> → <strong>"Adicionar à Tela de Início"</strong></div>
   <div class="weeks" id="weeks-container"></div>
-  <button class="exp-btn" onclick="exportar()"><i class="ti ti-download"></i> Exportar resumo de gastos</button>
+  <button class="exp-btn" onclick="exportarCSV()" style="margin-bottom:4px"><i class="ti ti-table-export"></i> Exportar CSV (Excel)</button>
+<button class="exp-btn" onclick="exportar()"><i class="ti ti-download"></i> Exportar resumo de texto</button>
   <div class="exp-box" id="exp-box" style="display:none"></div>
 </div>
 
@@ -331,6 +339,9 @@ let usdBrl=null;
 let pieChart=null;
 let filterCat=null;
 let filterPessoa=null;
+let selMoedas={};   // key -> 'usd'|'brl'
+let lastCotacao=null; // última cotação USD/BRL conhecida
+try{ const lc=localStorage.getItem('au26_lastcot'); if(lc) lastCotacao=parseFloat(lc); }catch(e){}
 let dbReady=false;
 
 // ── Firebase bridge ───────────────────────────────────────────
@@ -367,25 +378,32 @@ async function dbSave(date, data){
 function getStopData(dayData, si){ return (dayData.stops&&dayData.stops[si])||{exps:[],checked:false,note:''}; }
 function getAvulsos(dayData){ return dayData.avulsos||[]; }
 
-function dayTotal(dayData, roteiro){
+function itemValUSD(e){ return e.moeda==='usd'?e.val:(e.valUSD||0); }
+function itemValBRL(e){ return e.moeda==='brl'?e.val:(e.valBRL||0); }
+
+function dayTotal(dayData, roteiro, moeda='usd'){
   let t=0;
-  if(roteiro&&roteiro.stops) roteiro.stops.forEach((_,i)=>{ (getStopData(dayData,i).exps||[]).forEach(e=>t+=e.val); });
-  getAvulsos(dayData).forEach(a=>t+=a.val);
+  const fn = moeda==='brl' ? itemValBRL : itemValUSD;
+  if(roteiro&&roteiro.stops) roteiro.stops.forEach((_,i)=>{ (getStopData(dayData,i).exps||[]).forEach(e=>t+=fn(e)); });
+  getAvulsos(dayData).forEach(a=>t+=fn(a));
   return t;
 }
 function fmt(n){ return'$'+parseFloat(n||0).toFixed(2); }
 
 // totais globais via cache
-function weekTotal(wi){ let t=0; WEEKS[wi].days.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); }); return t; }
-function tripTotal(){ let t=0; ALL_DAYS.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); }); return t; }
-function acumUntil(date){
+function weekTotal(wi,moeda='usd'){ let t=0; WEEKS[wi].days.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro,moeda); }); return t; }
+function tripTotal(moeda='usd'){ let t=0; ALL_DAYS.forEach(d=>{ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro,moeda); }); return t; }
+function acumUntil(date,moeda='usd'){
   let t=0;
-  for(const d of ALL_DAYS){ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro); if(d.date===date)break; }
+  for(const d of ALL_DAYS){ const c=CACHE[d.date]; if(c) t+=dayTotal(c,d.roteiro,moeda); if(d.date===date)break; }
   return t;
 }
+function fmtBRL(n){ return'R$'+parseFloat(n||0).toFixed(2); }
 function updateTotals(){
-  document.getElementById('tot-trip').textContent=fmt(tripTotal());
-  document.getElementById('tot-week').textContent=fmt(weekTotal(currentWeekIdx));
+  document.getElementById('tot-trip').textContent=fmt(tripTotal('usd'));
+  document.getElementById('tot-week').textContent=fmt(weekTotal(currentWeekIdx,'usd'));
+  document.getElementById('tot-trip-brl').textContent=fmtBRL(tripTotal('brl'));
+  document.getElementById('tot-week-brl').textContent=fmtBRL(weekTotal(currentWeekIdx,'brl'));
 }
 
 function showTab(tab){
@@ -472,12 +490,13 @@ async function renderDayContent(d,wi,di){
           </div>
           <div class="exp-sec">
             <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="padding:4px 7px;font-size:10px;border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:12px"></i>${p.label}</button>`).join('')}</div>
+            <div class="moeda-sel"><button class="moeda-btn${(selMoedas[key]||'usd')==='usd'?' sel-usd':''}" onclick="selMoeda('${key}','usd',${wi},${di})">$ USD</button><button class="moeda-btn${(selMoedas[key]||'usd')==='brl'?' sel-brl':''}" onclick="selMoeda('${key}','brl',${wi},${di})">R$ BRL</button></div>
             <div class="exp-row">
-              <input class="inp-num" type="number" id="ev-${wi}-${di}-${si}" placeholder="$ valor" min="0" step="0.01">
+              <input class="inp-num" type="number" id="ev-${wi}-${di}-${si}" placeholder="${(selMoedas[key]||'usd')==='usd'?'$ valor':'R$ valor'}" min="0" step="0.01">
               <input class="inp-txt" type="text" id="ed-${wi}-${di}-${si}" placeholder="Descrição">
               <button class="btn-ae" onclick="addExp('${d.date}',${si},${wi},${di})"><i class="ti ti-plus"></i></button>
             </div>
-            ${exps.map((e,ei)=>`<div class="exp-item"><div><span style="color:var(--mt)">${e.desc||'Gasto'}</span><span style="font-size:10px;color:${PESSOAS.find(p=>p.id===e.pessoaId)?.color||'var(--gold)'};margin-left:5px">${e.pessoaLabel||'Geral ÷3'}</span></div><div style="display:flex;align-items:center;gap:5px"><span class="exp-val">${fmt(e.val)}</span><button class="btn-del" onclick="delExp('${d.date}',${si},${ei},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}
+            ${exps.map((e,ei)=>`<div class="exp-item"><div><span style="color:var(--mt)">${e.desc||'Gasto'}</span><span style="font-size:10px;color:${PESSOAS.find(p=>p.id===e.pessoaId)?.color||'var(--gold)'};margin-left:5px">${e.pessoaLabel||'Geral ÷3'}</span></div><div style="display:flex;align-items:center;gap:5px"><div style="text-align:right"><span class="exp-val">${e.moeda==='brl'?'R$'+e.val.toFixed(2):'$'+e.val.toFixed(2)}</span>${e.moeda==='brl'&&e.valUSD?`<div style="font-size:10px;color:var(--mt)">≈ $${e.valUSD}</div>`:''}${e.moeda==='usd'&&e.valBRL?`<div style="font-size:10px;color:var(--mt)">≈ R$${e.valBRL}</div>`:''}</div><button class="btn-del" onclick="delExp('${d.date}',${si},${ei},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}
             ${ct>0?`<div class="lc-tot">Total aqui: <span>${fmt(ct)}</span></div>`:''}
           </div>
           <button class="note-btn" onclick="toggleNote(${wi},${di},${si})"><i class="ti ti-notes"></i>${note?'Ver nota':'+ Nota'}</button>
@@ -494,12 +513,13 @@ async function renderDayContent(d,wi,di){
     <div class="av-title"><i class="ti ti-wallet"></i> Gasto avulso</div>
     <div class="cat-grid">${CATS.map(c=>`<button class="cat-btn${sc===c.id?' sel':''}" onclick="selCat('${key}','${c.id}',${wi},${di})"><i class="ti ${c.icon}" style="font-size:14px"></i>${c.label}</button>`).join('')}</div>
     <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:13px"></i>${p.label}</button>`).join('')}</div>
+    <div class="moeda-sel"><button class="moeda-btn${(selMoedas[key]||'usd')==='usd'?' sel-usd':''}" onclick="selMoeda('${key}','usd',${wi},${di})">$ USD</button><button class="moeda-btn${(selMoedas[key]||'usd')==='brl'?' sel-brl':''}" onclick="selMoeda('${key}','brl',${wi},${di})">R$ BRL</button></div>
     <div class="av-input-row">
       <input type="text" id="avd-${wi}-${di}" placeholder="Descrição (opcional)" style="flex:1">
-      <input type="number" id="avv-${wi}-${di}" placeholder="$0.00" min="0" step="0.01" style="width:100px">
+      <input type="number" id="avv-${wi}-${di}" placeholder="${(selMoedas[key]||'usd')==='usd'?'$0.00':'R$0,00'}" min="0" step="0.01" style="width:100px">
       <button class="btn-av" onclick="addAv('${d.date}',${wi},${di})"><i class="ti ti-plus"></i></button>
     </div>
-    ${avs.length?`<div>${avs.map((a,ai)=>`<div class="av-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="av-cat">${d.date} · <span style="color:${PESSOAS.find(p=>p.id===a.pessoaId)?.color||'var(--gold)'}">${a.pessoaLabel||'Geral ÷3'}</span></div></div><div style="display:flex;align-items:center;gap:5px"><span class="av-val">${fmt(a.val)}</span><button class="btn-del" onclick="delAv('${d.date}',${ai},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}</div>`:''}
+    ${avs.length?`<div>${avs.map((a,ai)=>`<div class="av-item"><div><div>${a.cat}${a.desc?' — '+a.desc:''}</div><div class="av-cat">${d.date} · <span style="color:${PESSOAS.find(p=>p.id===a.pessoaId)?.color||'var(--gold)'}">${a.pessoaLabel||'Geral ÷3'}</span></div></div><div style="display:flex;align-items:center;gap:5px"><div style="text-align:right"><span class="av-val">${a.moeda==='brl'?'R$'+a.val.toFixed(2):'$'+a.val.toFixed(2)}</span>${a.moeda==='brl'&&a.valUSD?`<div style="font-size:10px;color:var(--mt)">≈ $${a.valUSD}</div>`:''}${a.moeda==='usd'&&a.valBRL?`<div style="font-size:10px;color:var(--mt)">≈ R$${a.valBRL}</div>`:''}</div><button class="btn-del" onclick="delAv('${d.date}',${ai},${wi},${di})"><i class="ti ti-x"></i></button></div></div>`).join('')}</div>`:''}
   </div>`;
 
   const dt=dayTotal(dayData,d.roteiro);
@@ -534,6 +554,19 @@ function toggleNote(wi,di,si){
   const w=document.getElementById(`nwrap-${wi}-${di}-${si}`);
   if(w) w.style.display=w.style.display==='none'?'block':'none';
 }
+function getCotacao(){
+  const c = usdBrl || lastCotacao;
+  return c;
+}
+function cotacaoDisplay(){ return getCotacao() ? getCotacao().toFixed(4) : null; }
+
+function selMoeda(key,moeda,wi,di){
+  selMoedas[key]=moeda;
+  const d=WEEKS[wi].days[di];
+  const dc=document.getElementById(`dcontent-${wi}-${di}`);
+  if(dc&&openDays[`${wi}-${di}`]){ renderDayContent(d,wi,di).then(h=>{ dc.innerHTML=h; }); }
+}
+
 function selPessoa(key,id,wi,di){
   selPessoas[key]=id;
   const d=WEEKS[wi].days[di];
@@ -559,7 +592,19 @@ async function addExp(date,si,wi,di){
   const data=await dbLoad(date);
   if(!data.stops) data.stops={};
   if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
-  data.stops[si].exps.push({val:v,desc,pessoaId,pessoaLabel});
+  const moeda=selMoedas[key]||'usd';
+  const cot=getCotacao();
+  const valUSD = moeda==='usd' ? v : (cot ? parseFloat((v/cot).toFixed(2)) : null);
+  const valBRL = moeda==='brl' ? v : (cot ? parseFloat((v*cot).toFixed(2)) : null);
+  if(!cot && !lastCotacao){
+    const manual = prompt('Cotação USD/BRL não disponível. Digite a cotação atual (ex: 5.87):');
+    if(!manual) return;
+    const mc = parseFloat(manual);
+    if(isNaN(mc)) return;
+    lastCotacao=mc; usdBrl=mc;
+    try{ localStorage.setItem('au26_lastcot', mc); }catch(e){}
+  }
+  data.stops[si].exps.push({val:v,moeda,cotacao:cot||lastCotacao,valUSD,valBRL,desc,pessoaId,pessoaLabel});
   await dbSave(date,data);
   refreshDay(wi,di);
 }
@@ -580,7 +625,19 @@ async function addAv(date,wi,di){
   const pessoaLabel=PESSOAS.find(p=>p.id===pessoaId)?.label||'Geral ÷3';
   const data=await dbLoad(date);
   if(!data.avulsos) data.avulsos=[];
-  data.avulsos.push({cat:catLabel,catId,desc,val:v,pessoaId,pessoaLabel});
+  const moeda=selMoedas[key]||'usd';
+  const cot=getCotacao();
+  const valUSD = moeda==='usd' ? v : (cot ? parseFloat((v/cot).toFixed(2)) : null);
+  const valBRL = moeda==='brl' ? v : (cot ? parseFloat((v*cot).toFixed(2)) : null);
+  if(!cot && !lastCotacao){
+    const manual = prompt('Cotação USD/BRL não disponível. Digite a cotação atual (ex: 5.87):');
+    if(!manual) return;
+    const mc = parseFloat(manual);
+    if(isNaN(mc)) return;
+    lastCotacao=mc; usdBrl=mc;
+    try{ localStorage.setItem('au26_lastcot', mc); }catch(e){}
+  }
+  data.avulsos.push({cat:catLabel,catId,desc,val:v,moeda,cotacao:cot||lastCotacao,valUSD,valBRL,pessoaId,pessoaLabel});
   await dbSave(date,data);
   refreshDay(wi,di);
 }
@@ -622,20 +679,23 @@ async function refreshDay(wi,di){
 }
 
 // ── Relatório ─────────────────────────────────────────────────
-function calcPessoaTotals(){
+function calcPessoaTotals(moeda='usd'){
   const pt={joao:0,lilian:0,diego:0};
+  const fn = moeda==='brl' ? itemValBRL : itemValUSD;
   ALL_DAYS.forEach(d=>{
     const data=CACHE[d.date];
     if(!data) return;
     if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((_,i)=>{
       (getStopData(data,i).exps||[]).forEach(e=>{
-        if(e.pessoaId==='geral'){ pt.joao+=e.val/3; pt.lilian+=e.val/3; pt.diego+=e.val/3; }
-        else if(pt[e.pessoaId]!==undefined) pt[e.pessoaId]+=e.val;
+        const v=fn(e);
+        if(e.pessoaId==='geral'){ pt.joao+=v/3; pt.lilian+=v/3; pt.diego+=v/3; }
+        else if(pt[e.pessoaId]!==undefined) pt[e.pessoaId]+=v;
       });
     });
     getAvulsos(data).forEach(a=>{
-      if(a.pessoaId==='geral'){ pt.joao+=a.val/3; pt.lilian+=a.val/3; pt.diego+=a.val/3; }
-      else if(pt[a.pessoaId]!==undefined) pt[a.pessoaId]+=a.val;
+      const v=fn(a);
+      if(a.pessoaId==='geral'){ pt.joao+=v/3; pt.lilian+=v/3; pt.diego+=v/3; }
+      else if(pt[a.pessoaId]!==undefined) pt[a.pessoaId]+=v;
     });
   });
   return pt;
@@ -664,15 +724,17 @@ function renderRel(){
     });
   }
 
-  const pt=calcPessoaTotals();
+  const pt=calcPessoaTotals('usd');
+  const ptBRL=calcPessoaTotals('brl');
   const maxP=Math.max(pt.joao,pt.lilian,pt.diego,0.01);
-  const pessoasFil=filterPessoa;
+  const trip=tripTotal('usd');
+  const tripBRL=tripTotal('brl');
 
   document.getElementById('rel-content').innerHTML=`
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-users"></i> Por pessoa (Geral ÷3)</div>
     ${[{id:'joao',label:'João',color:'#5B9BD5'},{id:'lilian',label:'Lilian',color:'#C97BC0'},{id:'diego',label:'Diego',color:'#4CAF80'}].map(p=>`
-    <div class="rel-row"><span>${p.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(pt[p.id]/maxP*100).toFixed(1)}%;background:${p.color}"></div></div><span class="rel-val" style="color:${p.color}">${fmt(pt[p.id])}</span></div>`).join('')}
+    <div class="rel-row"><span>${p.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(pt[p.id]/maxP*100).toFixed(1)}%;background:${p.color}"></div></div><div style="text-align:right"><span class="rel-val" style="color:${p.color}">${fmt(pt[p.id])}</span><div style="font-size:10px;color:var(--mt)">${fmtBRL(ptBRL[p.id])}</div></div></div>`).join('')}
   </div>
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-filter"></i> Filtrar por pessoa</div>
@@ -684,13 +746,17 @@ function renderRel(){
   </div>
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-trending-up"></i> Totais por semana</div>
-    ${WEEKS.map((w,wi)=>`<div class="rel-row"><span>${w.label}</span><span class="rel-val">${fmt(weekTotal(wi))}</span></div>`).join('')}
-    <div class="rel-row" style="border-top:1px solid var(--or);margin-top:4px;padding-top:8px"><span style="font-weight:600">Total geral</span><span class="rel-val" style="color:var(--or)">${fmt(trip)}</span></div>
+    ${WEEKS.map((w,wi)=>`<div class="rel-row"><span>${w.label}</span><div style="text-align:right"><span class="rel-val">${fmt(weekTotal(wi,'usd'))}</span><div style="font-size:10px;color:var(--mt)">${fmtBRL(weekTotal(wi,'brl'))}</div></div></div>`).join('')}
+    <div class="rel-row" style="border-top:1px solid var(--or);margin-top:4px;padding-top:8px"><span style="font-weight:600">Total geral</span><div style="text-align:right"><span class="rel-val" style="color:var(--or)">${fmt(trip)}</span><div style="font-size:10px;color:var(--mt)">${fmtBRL(tripBRL)}</div></div></div>
   </div>
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-chart-pie"></i> Por categoria</div>
     ${trip>0?`<div class="pie-wrap"><canvas id="pieCanvas" width="180" height="180"></canvas></div><div class="pie-legend">${pieData.map(c=>`<div class="pie-leg-item"><div class="pie-dot" style="background:${c.color}"></div>${c.label}: ${fmt(catTotals[c.id])}</div>`).join('')}</div>`:'<div class="empty-note">Nenhum gasto registrado ainda</div>'}
-    ${CATS.map(c=>`<div class="rel-row"><span>${c.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(catTotals[c.id]/maxC*100).toFixed(1)}%"></div></div><span class="rel-val">${fmt(catTotals[c.id])}</span></div>`).join('')}
+    ${(()=>{
+      const catBRL={};CATS.forEach(c=>catBRL[c.id]=0);
+      ALL_DAYS.forEach(d=>{const data=CACHE[d.date];if(!data)return;if(d.roteiro&&d.roteiro.stops)d.roteiro.stops.forEach((_,i)=>{(getStopData(data,i).exps||[]).forEach(e=>catBRL['outro']+=itemValBRL(e));});getAvulsos(data).forEach(a=>{const id=a.catId&&catBRL[a.catId]!==undefined?a.catId:'outro';catBRL[id]+=itemValBRL(a);});});
+      return CATS.map(c=>`<div class="rel-row"><span>${c.label}</span><div class="rel-bar-wrap"><div class="rel-bar" style="width:${(catTotals[c.id]/maxC*100).toFixed(1)}%"></div></div><div style="text-align:right"><span class="rel-val">${fmt(catTotals[c.id])}</span><div style="font-size:10px;color:var(--mt)">${fmtBRL(catBRL[c.id])}</div></div></div>`).join('');
+    })()}
   </div>
   <div class="rel-section">
     <div class="rel-title"><i class="ti ti-filter"></i> Filtrar por categoria</div>
@@ -718,6 +784,8 @@ async function fetchCambio(){
     const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
     const data=await r.json();
     usdBrl=data.rates.BRL;
+    lastCotacao=usdBrl;
+    try{ localStorage.setItem('au26_lastcot', usdBrl); }catch(e){}
     el.textContent=`R$ ${usdBrl.toFixed(4)}`;
     ts.textContent=`Atualizado · 1 USD = R$ ${usdBrl.toFixed(2)}`;
     convertUSD(); convertBRL();
@@ -727,6 +795,29 @@ function convertUSD(){ const v=parseFloat(document.getElementById('conv-usd').va
 function convertBRL(){ const v=parseFloat(document.getElementById('conv-brl').value)||0; document.getElementById('conv-usd-result').textContent=usdBrl?`$ ${(v/usdBrl).toFixed(2)}`:'$ --'; }
 
 // ── Exportar ──────────────────────────────────────────────────
+function exportarCSV(){
+  let csv='Data,Semana,Pessoa,Categoria,Descrição,Moeda,Valor,Cotação USD/BRL,Valor USD,Valor BRL\n';
+  WEEKS.forEach((w,wi)=>{
+    w.days.forEach(d=>{
+      const data=CACHE[d.date];
+      if(!data) return;
+      if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach((s,i)=>{
+        (getStopData(data,i).exps||[]).forEach(e=>{
+          csv+=`${d.date},${w.label},${e.pessoaLabel||'Geral'},${s.name},"${e.desc||''}",${(e.moeda||'usd').toUpperCase()},${e.val},${e.cotacao||''},${e.valUSD||''},${e.valBRL||''}\n`;
+        });
+      });
+      getAvulsos(data).forEach(a=>{
+        csv+=`${d.date},${w.label},${a.pessoaLabel||'Geral'},${a.cat},"${a.desc||''}",${(a.moeda||'usd').toUpperCase()},${a.val},${a.cotacao||''},${a.valUSD||''},${a.valBRL||''}\n`;
+      });
+    });
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='austin_trip_2026.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function exportar(){
   const box=document.getElementById('exp-box');
   if(box.style.display==='block'){ box.style.display='none'; return; }
@@ -752,15 +843,31 @@ function exportar(){
 }
 
 // ── Clima ─────────────────────────────────────────────────────
-async function fetchWeather(){
-  const el=document.getElementById('wtxt'); el.textContent='...';
+async function fetchWeatherByCoords(lat,lon){
+  const el=document.getElementById('wtxt');
   try{
-    const r=await fetch('https://wttr.in/Austin,TX?format=j1');
+    const r=await fetch(`https://wttr.in/${lat},${lon}?format=j1`);
     const d=await r.json();
     const temp=d.current_condition[0].temp_C;
     const desc=d.current_condition[0].weatherDesc[0].value;
     el.textContent=desc+' '+temp+'°C';
-  }catch(e){ el.textContent='Austin TX'; }
+  }catch(e){ el.textContent='Clima indisponível'; }
+}
+
+async function fetchWeather(){
+  const el=document.getElementById('wtxt');
+  const gpsNote=document.getElementById('gps-note');
+  el.textContent='...';
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ gpsNote.classList.remove('show'); fetchWeatherByCoords(pos.coords.latitude.toFixed(4),pos.coords.longitude.toFixed(4)); },
+      err=>{ gpsNote.classList.add('show'); fetchWeatherByCoords(30.2672,-97.7431); },
+      {timeout:5000}
+    );
+  } else {
+    gpsNote.classList.add('show');
+    fetchWeatherByCoords(30.2672,-97.7431);
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────
