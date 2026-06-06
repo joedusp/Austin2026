@@ -489,8 +489,8 @@ async function renderDayContent(d,wi,di){
             <button class="btn-chk${chk?' checked':''}" onclick="toggleChk('${d.date}',${si},${wi},${di})"><i class="ti ti-check"></i></button>
           </div>
           <div class="exp-sec">
-            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="padding:4px 7px;font-size:10px;border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:12px"></i>${p.label}</button>`).join('')}</div>
-            <div class="moeda-sel"><button class="moeda-btn${(selMoedas[key]||'usd')==='usd'?' sel-usd':''}" onclick="selMoeda('${key}','usd',${wi},${di})">$ USD</button><button class="moeda-btn${(selMoedas[key]||'usd')==='brl'?' sel-brl':''}" onclick="selMoeda('${key}','brl',${wi},${di})">R$ BRL</button></div>
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">${renderPessoaBtns(key,wi,di,true)}</div>
+            <div class="moeda-sel">${renderMoedaBtns(key,wi,di)}</div>
             <div class="exp-row">
               <input class="inp-num" type="number" id="ev-${wi}-${di}-${si}" placeholder="${(selMoedas[key]||'usd')==='usd'?'$ valor':'R$ valor'}" min="0" step="0.01">
               <input class="inp-txt" type="text" id="ed-${wi}-${di}-${si}" placeholder="Descrição">
@@ -511,9 +511,9 @@ async function renderDayContent(d,wi,di){
   const avs=getAvulsos(dayData);
   h+=`<div class="avulso-sec">
     <div class="av-title"><i class="ti ti-wallet"></i> Gasto avulso</div>
-    <div class="cat-grid">${CATS.map(c=>`<button class="cat-btn${sc===c.id?' sel':''}" onclick="selCat('${key}','${c.id}',${wi},${di})"><i class="ti ${c.icon}" style="font-size:14px"></i>${c.label}</button>`).join('')}</div>
-    <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">${PESSOAS.map(p=>`<button class="cat-btn${(selPessoas[key]||'geral')===p.id?' sel':''}" onclick="selPessoa('${key}',\'${p.id}\',${wi},${di})" style="border-color:${(selPessoas[key]||'geral')===p.id?p.color:'var(--bd)'}"><i class="ti ti-user" style="font-size:13px"></i>${p.label}</button>`).join('')}</div>
-    <div class="moeda-sel"><button class="moeda-btn${(selMoedas[key]||'usd')==='usd'?' sel-usd':''}" onclick="selMoeda('${key}','usd',${wi},${di})">$ USD</button><button class="moeda-btn${(selMoedas[key]||'usd')==='brl'?' sel-brl':''}" onclick="selMoeda('${key}','brl',${wi},${di})">R$ BRL</button></div>
+    <div class="cat-grid">${renderCatBtns(key,sc,wi,di)}</div>
+    <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">${renderPessoaBtns(key,wi,di,false)}</div>
+    <div class="moeda-sel">${renderMoedaBtns(key,wi,di)}</div>
     <div class="av-input-row">
       <input type="text" id="avd-${wi}-${di}" placeholder="Descrição (opcional)" style="flex:1">
       <input type="number" id="avv-${wi}-${di}" placeholder="${(selMoedas[key]||'usd')==='usd'?'$0.00':'R$0,00'}" min="0" step="0.01" style="width:100px">
@@ -554,6 +554,31 @@ function toggleNote(wi,di,si){
   const w=document.getElementById(`nwrap-${wi}-${di}-${si}`);
   if(w) w.style.display=w.style.display==='none'?'block':'none';
 }
+function renderCatBtns(key,sc,wi,di){
+  return CATS.map(c=>{
+    const s=sc===c.id;
+    return '<button class="cat-btn'+(s?' sel':'')+'" onclick="selCat(''+key+'',''+c.id+'','+wi+','+di+')"><i class="ti '+c.icon+'" style="font-size:14px"></i>'+c.label+'</button>';
+  }).join('');
+}
+
+function renderPessoaBtns(key,wi,di,small){
+  const sel=selPessoas[key]||'geral';
+  return PESSOAS.map(p=>{
+    const s=sel===p.id;
+    const sz=small?'padding:4px 7px;font-size:10px;':'';
+    const bc=s?p.color:'var(--bd)';
+    const co=s?p.color:'var(--mt)';
+    return '<button class="cat-btn'+(s?' sel':'')+'" onclick="selPessoa(''+key+'',''+p.id+'','+wi+','+di+')" style="'+sz+'border-color:'+bc+';color:'+co+'"><i class="ti ti-user" style="font-size:'+(small?'12':'13')+'px"></i>'+p.label+'</button>';
+  }).join('');
+}
+
+function renderMoedaBtns(key,wi,di){
+  const sel=selMoedas[key]||'usd';
+  const usdSel=sel==='usd';
+  return '<button class="moeda-btn'+(usdSel?' sel-usd':'')+'" onclick="selMoeda(''+key+'','usd','+wi+','+di+')">$ USD</button>'
+       + '<button class="moeda-btn'+(!usdSel?' sel-brl':'')+'" onclick="selMoeda(''+key+'','brl','+wi+','+di+')">R$ BRL</button>';
+}
+
 function getCotacao(){
   const c = usdBrl || lastCotacao;
   return c;
