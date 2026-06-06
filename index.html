@@ -14,10 +14,10 @@
      FIREBASE CONFIG — substitua os valores abaixo pelos seus
      do console.firebase.google.com
      ============================================================ -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+<!-- Firebase SDK compat (não usa type=module, evita CORS no Safari/GitHub Pages) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey:            "AIzaSyBeJy6LLPbYMz6P4TWh4uifHgP7_2Jc4p4",
   authDomain:        "austin-trip-2026.firebaseapp.com",
@@ -27,28 +27,24 @@ const firebaseConfig = {
   appId:             "1:835005359085:web:071867a96a7f57fc163de4"
 };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-// ── helpers ──────────────────────────────────────────────────
 function dateKey(date){ return date.replace('/',''); }
 
 async function loadDay(date){
   try{
-    const ref = doc(db, "austin2026", dateKey(date));
-    const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() : { stops:{}, avulsos:[] };
+    const snap = await db.collection("austin2026").doc(dateKey(date)).get();
+    return snap.exists ? snap.data() : { stops:{}, avulsos:[] };
   }catch(e){ return { stops:{}, avulsos:[] }; }
 }
 
 async function saveDay(date, data){
   try{
-    const ref = doc(db, "austin2026", dateKey(date));
-    await setDoc(ref, data, { merge: true });
+    await db.collection("austin2026").doc(dateKey(date)).set(data, { merge: true });
   }catch(e){ console.error("Erro ao salvar:", e); }
 }
 
-// expõe para o código global
 window.DB = { loadDay, saveDay };
 window.DB_READY = true;
 window.dispatchEvent(new Event('db-ready'));
@@ -897,11 +893,7 @@ async function fetchWeather(){
 
 // ── Init ──────────────────────────────────────────────────────
 function init(){
-  try {
-    renderWeeks();
-  } catch(e) {
-    document.getElementById('weeks-container').innerHTML = '<div style="color:#E25A5A;padding:16px;font-size:11px;word-break:break-all;line-height:1.6"><strong>ERRO:</strong> ' + e.message + '<br><br>' + (e.stack||'') + '</div>';
-  }
+  renderWeeks();
   fetchWeather();
   fetchCambio();
   setSyncDot('loading');
