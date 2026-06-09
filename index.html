@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="Austin 2026">
 <title>Austin Trip 2026</title>
 <style>
-@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css');
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0D1B2A;--surf:#1A2E42;--card:#1F3347;--or:#E8733A;--orl:#F5A67A;--gold:#D4A843;--tx:#F0EDE8;--mt:#8FA3B8;--bd:#2A4560;--gr:#4CAF80;--rd:#E25A5A}
 body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:480px;margin:0 auto;min-height:100vh}
@@ -985,10 +984,7 @@ try{
 fetchWeather();
 fetchCambio();
 
-// Carrega Chart.js dinamicamente para nao bloquear o render
-var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-document.head.appendChild(s);
+// Chart.js removido temporariamente para diagnostico
 </script>
 </body>
 </html>
