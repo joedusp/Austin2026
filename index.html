@@ -590,20 +590,22 @@ function editExp(date,si,ei,wi,di){
   if(!items[ei]) return;
   var form=document.createElement('div');
   form.className='edit-form';form.id=fid;
+  var catsHtml=CATS.map(function(c){return '<button class="cat-btn'+(e.catId===c.id?' on':'')+'" onclick="edTogCat(''+fid+'',''+c.id+'',this)">'+c.label+'</button>';}).join('');
+  var pessHtml=PESSOAS.map(function(p){var on=e.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(''+fid+'',''+p.id+'',''+p.color+'',this)">'+p.label+'</button>';}).join('');
   form.innerHTML='<div class="edit-title">Editar lancamento</div>'
-    +'<div class="cat-grid" id="'+fid+'-cats">'
-    +CATS.map(function(c){return '<button class="cat-btn'+(e.catId===c.id?' on':'')+'" onclick="edTogCat(\''+fid+'\',\''+c.id+'\',this)">'+c.label+'</button>';}).join('')
+    +'<div class="exp-row" style="margin-bottom:8px">'
+    +'<input class="inp inp-fl" type="text" id="'+fid+'-desc" placeholder="Descricao" value="'+(e.desc||'')+'">'
+    +'<input class="inp inp-sm" type="number" id="'+fid+'-val" value="'+e.val+'" min="0" step="0.01">'
+    +'<span style="font-size:11px;color:var(--mt);padding:0 4px">'+(e.moeda==='brl'?'BRL':'USD')+'</span>'
     +'</div>'
-    +'<div class="sel-row" id="'+fid+'-pess">'
-    +PESSOAS.map(function(p){var on=e.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(\''+fid+'\',\''+p.id+'\',\''+p.color+'\',this)">'+p.label+'</button>';}).join('')
-    +'</div>'
+    +'<div class="cat-grid" id="'+fid+'-cats">'+catsHtml+'</div>'
+    +'<div class="sel-row" id="'+fid+'-pess">'+pessHtml+'</div>'
     +'<div style="display:flex;gap:6px;margin-top:8px">'
-    +'<button class="btn-save" onclick="saveEditExp(\''+date+'\','+si+','+ei+','+wi+','+di+',\''+fid+'\')">Salvar</button>'
-    +'<button class="btn-cancel" onclick="document.getElementById(\''+fid+'\').remove()">Cancelar</button>'
+    +'<button class="btn-save" onclick="saveEditExp(''+date+'','+si+','+ei+','+wi+','+di+',''+fid+'')">Salvar</button>'
+    +'<button class="btn-cancel" onclick="document.getElementById(''+fid+'').remove()">Cancelar</button>'
     +'</div>';
   items[ei].insertAdjacentElement('afterend',form);
 }
-
 function editAv(date,ai,wi,di){
   var fid='af-'+wi+'-'+di+'-'+ai;
   var ex=document.getElementById(fid);
@@ -615,20 +617,22 @@ function editAv(date,ai,wi,di){
   if(!items[ai]) return;
   var form=document.createElement('div');
   form.className='edit-form';form.id=fid;
+  var catsHtml=CATS.map(function(c){return '<button class="cat-btn'+(a.catId===c.id?' on':'')+'" onclick="edTogCat(''+fid+'',''+c.id+'',this)">'+c.label+'</button>';}).join('');
+  var pessHtml=PESSOAS.map(function(p){var on=a.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(''+fid+'',''+p.id+'',''+p.color+'',this)">'+p.label+'</button>';}).join('');
   form.innerHTML='<div class="edit-title">Editar gasto avulso</div>'
-    +'<div class="cat-grid" id="'+fid+'-cats">'
-    +CATS.map(function(c){return '<button class="cat-btn'+(a.catId===c.id?' on':'')+'" onclick="edTogCat(\''+fid+'\',\''+c.id+'\',this)">'+c.label+'</button>';}).join('')
+    +'<div class="exp-row" style="margin-bottom:8px">'
+    +'<input class="inp inp-fl" type="text" id="'+fid+'-desc" placeholder="Descricao" value="'+(a.desc||'')+'">'
+    +'<input class="inp inp-sm" type="number" id="'+fid+'-val" value="'+a.val+'" min="0" step="0.01">'
+    +'<span style="font-size:11px;color:var(--mt);padding:0 4px">'+(a.moeda==='brl'?'BRL':'USD')+'</span>'
     +'</div>'
-    +'<div class="sel-row" id="'+fid+'-pess">'
-    +PESSOAS.map(function(p){var on=a.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(\''+fid+'\',\''+p.id+'\',\''+p.color+'\',this)">'+p.label+'</button>';}).join('')
-    +'</div>'
+    +'<div class="cat-grid" id="'+fid+'-cats">'+catsHtml+'</div>'
+    +'<div class="sel-row" id="'+fid+'-pess">'+pessHtml+'</div>'
     +'<div style="display:flex;gap:6px;margin-top:8px">'
-    +'<button class="btn-save" onclick="saveEditAv(\''+date+'\','+ai+','+wi+','+di+',\''+fid+'\')">Salvar</button>'
-    +'<button class="btn-cancel" onclick="document.getElementById(\''+fid+'\').remove()">Cancelar</button>'
+    +'<button class="btn-save" onclick="saveEditAv(''+date+'','+ai+','+wi+','+di+',''+fid+'')">Salvar</button>'
+    +'<button class="btn-cancel" onclick="document.getElementById(''+fid+'').remove()">Cancelar</button>'
     +'</div>';
   items[ai].insertAdjacentElement('afterend',form);
 }
-
 function edTogCat(fid,id,btn){
   var g=document.getElementById(fid+'-cats');
   if(g){g.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');g.dataset.sel=id;}
@@ -644,8 +648,17 @@ function saveEditExp(date,si,ei,wi,di,fid){
   var e=exps[ei];if(!e) return;
   var cg=document.getElementById(fid+'-cats');
   var pg=document.getElementById(fid+'-pess');
+  var vInput=document.getElementById(fid+'-val');
+  var dInput=document.getElementById(fid+'-desc');
   var newCatId=cg&&cg.dataset.sel?cg.dataset.sel:e.catId||'outro';
   var newPessId=pg&&pg.dataset.sel?pg.dataset.sel:e.pessoaId||'geral';
+  var newVal=vInput&&parseFloat(vInput.value)>0?parseFloat(vInput.value):e.val;
+  var newDesc=dInput?dInput.value.trim():e.desc;
+  var cot=e.cotacao||getCot()||1;
+  e.val=newVal;
+  e.desc=newDesc;
+  e.valUSD=e.moeda==='usd'?newVal:parseFloat((newVal/cot).toFixed(2));
+  e.valBRL=e.moeda==='brl'?newVal:parseFloat((newVal*cot).toFixed(2));
   e.catId=newCatId;e.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;
   e.pessoaId=newPessId;e.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;
   exps[ei]=e;data.stops[si].exps=exps;
@@ -658,8 +671,17 @@ function saveEditAv(date,ai,wi,di,fid){
   var a=avs[ai];if(!a) return;
   var cg=document.getElementById(fid+'-cats');
   var pg=document.getElementById(fid+'-pess');
+  var vInput=document.getElementById(fid+'-val');
+  var dInput=document.getElementById(fid+'-desc');
   var newCatId=cg&&cg.dataset.sel?cg.dataset.sel:a.catId||'outro';
   var newPessId=pg&&pg.dataset.sel?pg.dataset.sel:a.pessoaId||'geral';
+  var newVal=vInput&&parseFloat(vInput.value)>0?parseFloat(vInput.value):a.val;
+  var newDesc=dInput?dInput.value.trim():a.desc;
+  var cot=a.cotacao||getCot()||1;
+  a.val=newVal;
+  a.desc=newDesc;
+  a.valUSD=a.moeda==='usd'?newVal:parseFloat((newVal/cot).toFixed(2));
+  a.valBRL=a.moeda==='brl'?newVal:parseFloat((newVal*cot).toFixed(2));
   a.catId=newCatId;a.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;
   a.pessoaId=newPessId;a.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;
   avs[ai]=a;data.avulsos=avs;
