@@ -152,6 +152,7 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 
 <div id="tab-roteiro">
   <div class="tip"><b>Instalar no iPhone:</b> Safari - Compartilhar - "Adicionar a Tela de Inicio"</div>
+  <div id="diag" style="padding:10px 14px;font-size:11px;color:var(--gold);line-height:1.6"></div>
   <div class="weeks" id="weeks"></div>
   <div class="exp-btns">
     <button class="exp-btn" onclick="exportCSV()">&#128196; Exportar CSV (Excel)</button>
@@ -968,7 +969,19 @@ function openMaps(e,url){
 }
 
 // ── Init ──────────────────────────────────────────────────────
-renderWeeks();
+var diag=document.getElementById('diag');
+try{
+  diag.textContent='Gerando dias...';
+  var testDays=genDays();
+  diag.textContent='Dias: '+testDays.length+' | Semanas: '+WEEKS.length;
+  renderWeeks();
+  var wc=document.getElementById('weeks');
+  diag.textContent+=' | HTML: '+wc.children.length+' semanas renderizadas';
+  if(wc.children.length===0) diag.textContent+=' | ERRO: weeks vazio!';
+  else diag.style.display='none';
+}catch(err){
+  diag.textContent='ERRO JS: '+err.message+' | '+err.stack;
+}
 fetchWeather();
 fetchCambio();
 
