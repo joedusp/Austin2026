@@ -797,38 +797,61 @@ function fetchWeather(){
 
 // Export
 function exportCSV(){
-  var csv='Data,Semana,Pessoa,Categoria,Descricao,Moeda,Valor,Cotacao,Valor USD,Valor BRL\n';
+  var rows = ["Data,Semana,Pessoa,Categoria,Descricao,Moeda,Valor,Cotacao,Valor USD,Valor BRL"];
   WEEKS.forEach(function(w,wi){
     w.days.forEach(function(d){
-      var data=loadDay(d.date);
-      if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach(function(s,i){(getStop(data,i).exps||[]).forEach(function(e){csv+=d.date+','+w.label+','+(e.pessoaLabel||'Geral')+','+s.name+',"'+(e.desc||'")+'",'+((e.moeda||'usd').toUpperCase())+','+e.val+','+(e.cotacao||'')+','+(e.valUSD||'')+','+(e.valBRL||'')+'\n';});});
-      getAvs(data).forEach(function(a){csv+=d.date+','+w.label+','+(a.pessoaLabel||'Geral')+','+a.cat+',"'+(a.desc||'')+'",'+(  (a.moeda||'usd').toUpperCase())+','+a.val+','+(a.cotacao||'')+','+(a.valUSD||'')+','+(a.valBRL||'')+'\n';});
+      var data = loadDay(d.date);
+      if(d.roteiro && d.roteiro.stops){
+        d.roteiro.stops.forEach(function(s,i){
+          (getStop(data,i).exps||[]).forEach(function(e){
+            rows.push([d.date, w.label, e.pessoaLabel||"Geral", s.name, e.desc||"", (e.moeda||"usd").toUpperCase(), e.val, e.cotacao||"", e.valUSD||"", e.valBRL||""].join(","));
+          });
+        });
+      }
+      getAvs(data).forEach(function(a){
+        rows.push([d.date, w.label, a.pessoaLabel||"Geral", a.cat, a.desc||"", (a.moeda||"usd").toUpperCase(), a.val, a.cotacao||"", a.valUSD||"", a.valBRL||""].join(","));
+      });
     });
   });
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');a.href=url;a.download='austin2026.csv';a.click();URL.revokeObjectURL(url);
+  var blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "austin2026.csv"; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exportTxt(){
-  var box=document.getElementById('exp-box');
-  if(box.style.display==='block'){box.style.display='none';return;}
-  var txt='=== AUSTIN TRIP 2026 ===\n\n',grand=0;
+  var box = document.getElementById("exp-box");
+  if(box.style.display === "block"){box.style.display = "none"; return;}
+  var lines = ["=== AUSTIN TRIP 2026 ===", ""];
+  var grand = 0;
   WEEKS.forEach(function(w,wi){
-    var wt=weekTot(wi,'usd');grand+=wt;txt+=w.label+'\n';
+    var wt = weekTot(wi,"usd"); grand += wt;
+    lines.push(w.label);
     w.days.forEach(function(d){
-      var data=loadDay(d.date);var dt=dayTot(data,d.roteiro,'usd');if(!dt) return;
-      txt+='  '+d.date+'\n';
-      if(d.roteiro&&d.roteiro.stops) d.roteiro.stops.forEach(function(s,i){var e=getStop(data,i).exps||[];if(e.length){txt+='    '+s.name+'\n';e.forEach(function(x){txt+='      '+(x.desc||'Gasto')+': '+(x.moeda==='brl'?fmtR(x.val):fmt(x.val))+'\n';});}});
-      getAvs(data).forEach(function(a){txt+='    '+a.cat+(a.desc?' - '+a.desc:'')+': '+(a.moeda==='brl'?fmtR(a.val):fmt(a.val))+'\n';});
-      txt+='    Dia: '+fmt(dt)+' / Acumulado: '+fmt(acumTil(d.date,'usd'))+'\n';
+      var data = loadDay(d.date);
+      var dt = dayTot(data, d.roteiro, "usd");
+      if(!dt) return;
+      lines.push("  " + d.date);
+      if(d.roteiro && d.roteiro.stops){
+        d.roteiro.stops.forEach(function(s,i){
+          var e = getStop(data,i).exps||[];
+          if(e.length){
+            lines.push("    " + s.name);
+            e.forEach(function(x){ lines.push("      " + (x.desc||"Gasto") + ": " + (x.moeda==="brl"?fmtR(x.val):fmt(x.val))); });
+          }
+        });
+      }
+      getAvs(data).forEach(function(a){ lines.push("    " + a.cat + (a.desc?" - "+a.desc:"") + ": " + (a.moeda==="brl"?fmtR(a.val):fmt(a.val))); });
+      lines.push("    Dia: " + fmt(dt) + " / Acumulado: " + fmt(acumTil(d.date,"usd")));
     });
-    txt+='  Subtotal: '+fmt(wt)+'\n\n';
+    lines.push("  Subtotal: " + fmt(wt));
+    lines.push("");
   });
-  txt+='TOTAL GERAL: '+fmt(grand);
-  box.textContent=txt;box.style.display='block';
+  lines.push("TOTAL GERAL: " + fmt(grand));
+  box.textContent = lines.join("\n");
+  box.style.display = "block";
 }
-
 // Init
 renderWeeks();
 fetchWeather();
