@@ -147,6 +147,9 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
   <div class="tip"><b>Instalar no iPhone:</b> Safari - Compartilhar - Adicionar a Tela de Inicio</div>
   <div class="weeks" id="weeks"></div>
   <div class="exp-btns">
+    <button class="exp-btn" onclick="document.getElementById('import-input').click()">&#128229; Importar CSV</button>
+    <input type="file" id="import-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+    <div class="exp-box" id="import-msg" style="display:none"></div>
     <button class="exp-btn" onclick="exportCSV()">&#128196; Exportar CSV (Excel)</button>
     <button class="exp-btn" onclick="exportTxt()">&#8595; Exportar resumo de texto</button>
     <div class="exp-box" id="exp-box" style="display:none"></div>
@@ -852,6 +855,64 @@ function exportTxt(){
   box.textContent = lines.join("\n");
   box.style.display = "block";
 }
+// Import CSV
+function importCSV(event){
+  var file = event.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var lines = e.target.result.split("\n");
+    var header = lines[0];
+    var count = 0;
+    var erros = 0;
+    // Agrupar por data para salvar de uma vez
+    var byDate = {};
+    for(var i=1;i<lines.length;i++){
+      var line = lines[i].trim();
+      if(!line) continue;
+      try{
+        // Parse CSV simples
+        var cols = line.split(",");
+        if(cols.length < 10) continue;
+        var date    = cols[0].trim();
+        var semana  = cols[1].trim();
+        var pessoa  = cols[2].trim();
+        var cat     = cols[3].trim();
+        var desc    = cols[4].trim();
+        var moeda   = (cols[5].trim()||"USD").toLowerCase();
+        var val     = parseFloat(cols[6]);
+        var cotacao = parseFloat(cols[7])||null;
+        var valUSD  = parseFloat(cols[8])||null;
+        var valBRL  = parseFloat(cols[9])||null;
+        if(!date || isNaN(val)) continue;
+        // Encontrar pessoaId
+        var p = PESSOAS.find(function(x){ return x.label===pessoa||x.id===pessoa.toLowerCase(); });
+        var pessoaId = p ? p.id : "geral";
+        var pessoaLabel = p ? p.label : "Geral /3";
+        // Encontrar catId
+        var c = CATS.find(function(x){ return x.label===cat||x.id===cat.toLowerCase(); });
+        var catId = c ? c.id : "outro";
+        var catLabel = c ? c.label : cat||"Outros";
+        if(!byDate[date]) byDate[date] = loadDay(date);
+        var entry = {val:val,moeda:moeda,cotacao:cotacao,valUSD:valUSD,valBRL:valBRL,desc:desc,pessoaId:pessoaId,pessoaLabel:pessoaLabel,catId:catId,cat:catLabel};
+        if(!byDate[date].avulsos) byDate[date].avulsos = [];
+        byDate[date].avulsos.push(entry);
+        count++;
+      }catch(err){ erros++; }
+    }
+    // Salvar todos os dias
+    Object.keys(byDate).forEach(function(date){ saveDay(date, byDate[date]); });
+    var msg = document.getElementById("import-msg");
+    msg.textContent = count + " lancamentos importados" + (erros>0?" ("+erros+" erros ignorados)":"") + ". Reabra os dias para ver.";
+    msg.style.display = "block";
+    updateTots();
+    renderWeeks();
+    // Limpar input para permitir reimportar
+    event.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
 // Init
 renderWeeks();
 fetchWeather();
