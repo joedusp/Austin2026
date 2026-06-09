@@ -180,6 +180,7 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 </div>
 
 <script>
+alert("JS OK - script iniciou");
 // ── Storage (localStorage only, sem Firebase) ─────────────────
 function lsGet(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
