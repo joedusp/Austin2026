@@ -72,6 +72,8 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .exp-sub{font-size:10px;color:var(--mt)}
 .btn-del{background:none;border:none;color:var(--rd);cursor:pointer;font-size:14px;padding:0 4px}
 .btn-edit{background:none;border:1px solid var(--bd);border-radius:4px;color:var(--mt);cursor:pointer;font-size:10px;padding:2px 6px}
+.sel-btn.on-cash{border-color:#D4A843;color:#D4A843}
+.sel-btn.on-cc{border-color:#7A9FE0;color:#7A9FE0}
 .lc-tot{font-size:11px;color:var(--mt);text-align:right;margin-top:4px}
 .lc-tot b{color:var(--gr)}
 .note-btn{background:none;border:none;color:var(--mt);font-size:11px;cursor:pointer;padding:0;margin-top:6px}
@@ -246,7 +248,7 @@ var WEEKS=[
 ];
 
 // Estado
-var openWeeks={0:true},openDays={},selCat={},selPessoa={},selMoeda={};
+var openWeeks={0:true},openDays={},selCat={},selPessoa={},selMoeda={},selPagto={};
 var curWeek=0,usdBrl=null,lastCot=null,fCat=null,fPessoa=null;
 try{var lc=localStorage.getItem('au26_cot');if(lc)lastCot=parseFloat(lc);}catch(e){}
 
@@ -385,7 +387,7 @@ function renderDayContent(d,wi,di){
         h+='<button class="btn-chk'+(chk?' checked':'')+'" onclick="toggleChk(\''+d.date+'\','+si+','+wi+','+di+')">&#10003;</button>';
         h+='</div>';
         h+='<div class="exp-sec">';
-        h+=mkPessoa(key,wi,di)+mkMoeda(key,wi,di);
+        h+=mkPagto(key,wi,di)+mkPessoa(key,wi,di)+mkMoeda(key,wi,di);
         var msel=selMoeda[key]||'usd';
         h+='<div class="exp-row">';
         h+='<input class="inp inp-sm" type="number" id="ev-'+wi+'-'+di+'-'+si+'" placeholder="'+(msel==='usd'?'$ valor':'R$ valor')+'" min="0" step="0.01">';
@@ -396,7 +398,8 @@ function renderDayContent(d,wi,di){
           var pc=PESSOAS.find(function(p){return p.id===e.pessoaId;})||{color:'var(--gold)'};
           h+='<div class="exp-item">';
           h+='<div><span style="color:var(--mt)">'+(e.desc||'Gasto')+'</span>';
-          h+=' <span style="font-size:10px;color:'+pc.color+'">'+(e.pessoaLabel||'Geral')+'</span></div>';
+          h+=' <span style="font-size:10px;color:'+pc.color+'">'+(e.pessoaLabel||'Geral')+'</span>';
+          h+=' <span style="font-size:10px;color:'+(e.pagto==='cc'?'#7A9FE0':'#D4A843')+'">'+(e.pagto==='cc'?'CC':'$')+'</span></div>';
           h+='<div style="display:flex;align-items:center;gap:4px"><div style="text-align:right">';
           h+='<span class="exp-val">'+(e.moeda==='brl'?fmtR(e.val):fmt(e.val))+'</span>';
           if(e.moeda==='brl'&&e.valUSD) h+='<div class="exp-sub">~$'+e.valUSD+'</div>';
@@ -424,7 +427,7 @@ function renderDayContent(d,wi,di){
     h+='<button class="cat-btn'+(sc===c.id?' on':'')+'" onclick="setSel(\'cat\',\''+key+'\',\''+c.id+'\','+wi+','+di+')">'+c.label+'</button>';
   });
   h+='</div>';
-  h+=mkPessoa(key,wi,di)+mkMoeda(key,wi,di);
+  h+=mkPagto(key,wi,di)+mkPessoa(key,wi,di)+mkMoeda(key,wi,di);
   h+='<div class="av-row">';
   h+='<input class="inp inp-fl" type="text" id="avd-'+wi+'-'+di+'" placeholder="Descricao (opcional)">';
   h+='<input class="inp" type="number" id="avv-'+wi+'-'+di+'" placeholder="'+(msel2==='usd'?'$':'R$')+'" min="0" step="0.01" style="width:80px">';
@@ -433,7 +436,8 @@ function renderDayContent(d,wi,di){
   avs.forEach(function(a,ai){
     var pc=PESSOAS.find(function(p){return p.id===a.pessoaId;})||{color:'var(--gold)'};
     h+='<div class="av-item"><div><div>'+a.cat+(a.desc?' - '+a.desc:'')+'</div>';
-    h+='<div style="font-size:10px;color:var(--mt)">'+d.date+' <span style="color:'+pc.color+'">'+(a.pessoaLabel||'Geral')+'</span></div></div>';
+    h+='<div style="font-size:10px;color:var(--mt)">'+d.date+' <span style="color:'+pc.color+'">'+(a.pessoaLabel||'Geral')+'</span>';
+    h+=' <span style="color:'+(a.pagto==='cc'?'#7A9FE0':'#D4A843')+'">'+(a.pagto==='cc'?'CC':'$')+'</span></div></div>';
     h+='<div style="display:flex;align-items:center;gap:4px"><div style="text-align:right">';
     h+='<span style="color:var(--gr);font-weight:500">'+(a.moeda==='brl'?fmtR(a.val):fmt(a.val))+'</span>';
     if(a.moeda==='brl'&&a.valUSD) h+='<div class="exp-sub">~$'+a.valUSD+'</div>';
@@ -448,6 +452,14 @@ function renderDayContent(d,wi,di){
   if(dt>0) h+='<div class="acum">Acumulado ate '+d.date+': <b>'+fmt(acumTil(d.date,'usd'))+'</b></div>';
   h+='</div>';
   return h;
+}
+
+function mkPagto(key,wi,di){
+  var p=selPagto[key]||'cash';
+  return '<div class="sel-row">'
+    +'<button class="sel-btn'+(p==='cash'?' on-cash':'')+'" onclick="setSel('pagto',''+key+'','cash','+wi+','+di+')" style="'+(p==='cash'?'border-color:#D4A843;color:#D4A843':'')+'" title="Dinheiro">$ Cash</button>'
+    +'<button class="sel-btn'+(p==='cc'?' on-cc':'')+'" onclick="setSel('pagto',''+key+'','cc','+wi+','+di+')" style="'+(p==='cc'?'border-color:#7A9FE0;color:#7A9FE0':'')+'" title="Cartao de credito">CC</button>'
+    +'</div>';
 }
 
 function mkPessoa(key,wi,di){
@@ -471,6 +483,7 @@ function mkMoeda(key,wi,di){
 function setSel(type,key,val,wi,di){
   if(type==='cat') selCat[key]=selCat[key]===val?null:val;
   else if(type==='pessoa') selPessoa[key]=val;
+  else if(type==='pagto') selPagto[key]=val;
   else selMoeda[key]=val;
   refreshDay(wi,di);
 }
@@ -499,11 +512,12 @@ function addExp(date,si,wi,di){
   var valBRL=moeda==='brl'?v:parseFloat((v*cot).toFixed(2));
   var sp=selPessoa[key]||'geral';
   var pl=(PESSOAS.find(function(p){return p.id===sp;})||{label:'Geral'}).label;
+  var pagto=selPagto[key]||'cash';
   var data=loadDay(date);
   if(!data.stops) data.stops={};
   if(!data.stops[si]) data.stops[si]={exps:[],checked:false,note:''};
   if(!data.stops[si].exps) data.stops[si].exps=[];
-  data.stops[si].exps.push({val:v,moeda:moeda,cotacao:cot,valUSD:valUSD,valBRL:valBRL,desc:desc,pessoaId:sp,pessoaLabel:pl});
+  data.stops[si].exps.push({val:v,moeda:moeda,cotacao:cot,valUSD:valUSD,valBRL:valBRL,desc:desc,pessoaId:sp,pessoaLabel:pl,pagto:pagto});
   saveDay(date,data);
   refreshDay(wi,di);
 }
@@ -528,9 +542,10 @@ function addAv(date,wi,di){
   var catLabel=(CATS.find(function(c){return c.id===catId;})||{label:'Outros'}).label;
   var sp=selPessoa[key]||'geral';
   var pl=(PESSOAS.find(function(p){return p.id===sp;})||{label:'Geral'}).label;
+  var pagto2=selPagto[key]||'cash';
   var data=loadDay(date);
   if(!data.avulsos) data.avulsos=[];
-  data.avulsos.push({cat:catLabel,catId:catId,desc:desc,val:v,moeda:moeda,cotacao:cot,valUSD:valUSD,valBRL:valBRL,pessoaId:sp,pessoaLabel:pl});
+  data.avulsos.push({cat:catLabel,catId:catId,desc:desc,val:v,moeda:moeda,cotacao:cot,valUSD:valUSD,valBRL:valBRL,pessoaId:sp,pessoaLabel:pl,pagto:pagto2});
   saveDay(date,data);
   refreshDay(wi,di);
 }
@@ -579,60 +594,110 @@ function refreshDay(wi,di){
 }
 
 // Edicao inline
+function mkEditForm(fid,desc,val,moeda,catId,pessoaId,type,date,si_or_ai,wi,di,ei){
+  var form=document.createElement('div');
+  form.className='edit-form';form.id=fid;
+  form.dataset.type=type;form.dataset.date=date;
+  form.dataset.si=si_or_ai;form.dataset.wi=wi;form.dataset.di=di;
+  if(ei!==undefined) form.dataset.ei=ei;
+  var t=document.createElement('div');t.className='edit-title';
+  t.textContent=type==='exp'?'Editar lancamento':'Editar gasto avulso';form.appendChild(t);
+  var row=document.createElement('div');row.className='exp-row';row.style.marginBottom='8px';
+  var dInp=document.createElement('input');dInp.className='inp inp-fl';dInp.type='text';
+  dInp.id=fid+'-desc';dInp.placeholder='Descricao';dInp.value=desc;
+  var vInp=document.createElement('input');vInp.className='inp inp-sm';vInp.type='number';
+  vInp.id=fid+'-val';vInp.min='0';vInp.step='0.01';vInp.value=val;
+  var mLbl=document.createElement('span');mLbl.style.cssText='font-size:11px;color:var(--mt);padding:0 4px';
+  mLbl.textContent=moeda==='brl'?'BRL':'USD';
+  row.appendChild(dInp);row.appendChild(vInp);row.appendChild(mLbl);form.appendChild(row);
+  var cg=document.createElement('div');cg.className='cat-grid';cg.id=fid+'-cats';
+  CATS.forEach(function(c){
+    var b=document.createElement('button');b.className='cat-btn'+(c.id===catId?' on':'');
+    b.textContent=c.label;
+    b.onclick=(function(id,btn){return function(){edTogCat(fid,id,btn);};})(c.id,b);
+    cg.appendChild(b);
+  });
+  form.appendChild(cg);
+  var pr=document.createElement('div');pr.className='sel-row';pr.id=fid+'-pess';
+  PESSOAS.forEach(function(p){
+    var on=p.id===pessoaId;
+    var b=document.createElement('button');b.className='sel-btn'+(on?' on':'');
+    if(on){b.style.borderColor=p.color;b.style.color=p.color;}
+    b.textContent=p.label;
+    b.onclick=(function(id,color,btn){return function(){edTogPess(fid,id,color,btn);};})(p.id,p.color,b);
+    pr.appendChild(b);
+  });
+  form.appendChild(pr);
+  var br=document.createElement('div');br.style.cssText='display:flex;gap:6px;margin-top:8px';
+  var bS=document.createElement('button');bS.className='btn-save';bS.textContent='Salvar';
+  bS.onclick=function(){saveEdit(fid);};
+  var bC=document.createElement('button');bC.className='btn-cancel';bC.textContent='Cancelar';
+  bC.onclick=function(){form.remove();};
+  br.appendChild(bS);br.appendChild(bC);form.appendChild(br);
+  return form;
+}
+
+function saveEdit(fid){
+  var form=document.getElementById(fid);if(!form) return;
+  var type=form.dataset.type;
+  var date=form.dataset.date;
+  var wi=parseInt(form.dataset.wi);
+  var di=parseInt(form.dataset.di);
+  var si=parseInt(form.dataset.si);
+  var cg=document.getElementById(fid+'-cats');
+  var pg=document.getElementById(fid+'-pess');
+  var vInp=document.getElementById(fid+'-val');
+  var dInp=document.getElementById(fid+'-desc');
+  var newCatId=cg&&cg.dataset.sel?cg.dataset.sel:null;
+  var newPessId=pg&&pg.dataset.sel?pg.dataset.sel:null;
+  var newVal=vInp&&parseFloat(vInp.value)>0?parseFloat(vInp.value):null;
+  var newDesc=dInp?dInp.value.trim():null;
+  var data=loadDay(date);
+  if(type==='exp'){
+    var ei=parseInt(form.dataset.ei);
+    var exps=getStop(data,si).exps||[];
+    var e=exps[ei];if(!e) return;
+    var cot=e.cotacao||getCot()||1;
+    if(newCatId){e.catId=newCatId;e.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;}
+    if(newPessId){e.pessoaId=newPessId;e.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;}
+    if(newVal){e.val=newVal;e.valUSD=e.moeda==='usd'?newVal:parseFloat((newVal/cot).toFixed(2));e.valBRL=e.moeda==='brl'?newVal:parseFloat((newVal*cot).toFixed(2));}
+    if(newDesc!==null) e.desc=newDesc;
+    exps[ei]=e;data.stops[si].exps=exps;
+  } else {
+    var avs=getAvs(data);var a=avs[si];if(!a) return;
+    var cot2=a.cotacao||getCot()||1;
+    if(newCatId){a.catId=newCatId;a.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;}
+    if(newPessId){a.pessoaId=newPessId;a.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;}
+    if(newVal){a.val=newVal;a.valUSD=a.moeda==='usd'?newVal:parseFloat((newVal/cot2).toFixed(2));a.valBRL=a.moeda==='brl'?newVal:parseFloat((newVal*cot2).toFixed(2));}
+    if(newDesc!==null) a.desc=newDesc;
+    avs[si]=a;data.avulsos=avs;
+  }
+  saveDay(date,data);refreshDay(wi,di);
+}
+
 function editExp(date,si,ei,wi,di){
   var fid='ef-'+wi+'-'+di+'-'+si+'-'+ei;
-  var ex=document.getElementById(fid);
-  if(ex){ex.remove();return;}
+  var ex=document.getElementById(fid);if(ex){ex.remove();return;}
   var data=loadDay(date);
-  var e=(getStop(data,si).exps||[])[ei];
-  if(!e) return;
+  var e=(getStop(data,si).exps||[])[ei];if(!e) return;
   var items=document.querySelectorAll('#dcontent-'+wi+'-'+di+' .exp-item');
   if(!items[ei]) return;
-  var form=document.createElement('div');
-  form.className='edit-form';form.id=fid;
-  var catsHtml=CATS.map(function(c){return '<button class="cat-btn'+(e.catId===c.id?' on':'')+'" onclick="edTogCat(''+fid+'',''+c.id+'',this)">'+c.label+'</button>';}).join('');
-  var pessHtml=PESSOAS.map(function(p){var on=e.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(''+fid+'',''+p.id+'',''+p.color+'',this)">'+p.label+'</button>';}).join('');
-  form.innerHTML='<div class="edit-title">Editar lancamento</div>'
-    +'<div class="exp-row" style="margin-bottom:8px">'
-    +'<input class="inp inp-fl" type="text" id="'+fid+'-desc" placeholder="Descricao" value="'+(e.desc||'')+'">'
-    +'<input class="inp inp-sm" type="number" id="'+fid+'-val" value="'+e.val+'" min="0" step="0.01">'
-    +'<span style="font-size:11px;color:var(--mt);padding:0 4px">'+(e.moeda==='brl'?'BRL':'USD')+'</span>'
-    +'</div>'
-    +'<div class="cat-grid" id="'+fid+'-cats">'+catsHtml+'</div>'
-    +'<div class="sel-row" id="'+fid+'-pess">'+pessHtml+'</div>'
-    +'<div style="display:flex;gap:6px;margin-top:8px">'
-    +'<button class="btn-save" onclick="saveEditExp(''+date+'','+si+','+ei+','+wi+','+di+',''+fid+'')">Salvar</button>'
-    +'<button class="btn-cancel" onclick="document.getElementById(''+fid+'').remove()">Cancelar</button>'
-    +'</div>';
+  var form=mkEditForm(fid,e.desc||'',e.val,e.moeda,e.catId,e.pessoaId,'exp',date,si,wi,di,ei);
   items[ei].insertAdjacentElement('afterend',form);
 }
+
 function editAv(date,ai,wi,di){
   var fid='af-'+wi+'-'+di+'-'+ai;
-  var ex=document.getElementById(fid);
-  if(ex){ex.remove();return;}
+  var ex=document.getElementById(fid);if(ex){ex.remove();return;}
   var data=loadDay(date);
-  var a=(getAvs(data))[ai];
-  if(!a) return;
+  var a=(getAvs(data))[ai];if(!a) return;
   var items=document.querySelectorAll('#dcontent-'+wi+'-'+di+' .av-item');
   if(!items[ai]) return;
-  var form=document.createElement('div');
-  form.className='edit-form';form.id=fid;
-  var catsHtml=CATS.map(function(c){return '<button class="cat-btn'+(a.catId===c.id?' on':'')+'" onclick="edTogCat(''+fid+'',''+c.id+'',this)">'+c.label+'</button>';}).join('');
-  var pessHtml=PESSOAS.map(function(p){var on=a.pessoaId===p.id;return '<button class="sel-btn'+(on?' on':'')+'" style="'+(on?'border-color:'+p.color+';color:'+p.color:'')+'" onclick="edTogPess(''+fid+'',''+p.id+'',''+p.color+'',this)">'+p.label+'</button>';}).join('');
-  form.innerHTML='<div class="edit-title">Editar gasto avulso</div>'
-    +'<div class="exp-row" style="margin-bottom:8px">'
-    +'<input class="inp inp-fl" type="text" id="'+fid+'-desc" placeholder="Descricao" value="'+(a.desc||'')+'">'
-    +'<input class="inp inp-sm" type="number" id="'+fid+'-val" value="'+a.val+'" min="0" step="0.01">'
-    +'<span style="font-size:11px;color:var(--mt);padding:0 4px">'+(a.moeda==='brl'?'BRL':'USD')+'</span>'
-    +'</div>'
-    +'<div class="cat-grid" id="'+fid+'-cats">'+catsHtml+'</div>'
-    +'<div class="sel-row" id="'+fid+'-pess">'+pessHtml+'</div>'
-    +'<div style="display:flex;gap:6px;margin-top:8px">'
-    +'<button class="btn-save" onclick="saveEditAv(''+date+'','+ai+','+wi+','+di+',''+fid+'')">Salvar</button>'
-    +'<button class="btn-cancel" onclick="document.getElementById(''+fid+'').remove()">Cancelar</button>'
-    +'</div>';
+  var form=mkEditForm(fid,a.desc||'',a.val,a.moeda,a.catId,a.pessoaId,'av',date,ai,wi,di);
   items[ai].insertAdjacentElement('afterend',form);
 }
+
+
 function edTogCat(fid,id,btn){
   var g=document.getElementById(fid+'-cats');
   if(g){g.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');g.dataset.sel=id;}
@@ -642,53 +707,6 @@ function edTogPess(fid,id,color,btn){
   if(r){r.querySelectorAll('button').forEach(function(b){b.classList.remove('on');b.style.borderColor='';b.style.color='';});btn.classList.add('on');btn.style.borderColor=color;btn.style.color=color;r.dataset.sel=id;}
 }
 
-function saveEditExp(date,si,ei,wi,di,fid){
-  var data=loadDay(date);
-  var exps=getStop(data,si).exps||[];
-  var e=exps[ei];if(!e) return;
-  var cg=document.getElementById(fid+'-cats');
-  var pg=document.getElementById(fid+'-pess');
-  var vInput=document.getElementById(fid+'-val');
-  var dInput=document.getElementById(fid+'-desc');
-  var newCatId=cg&&cg.dataset.sel?cg.dataset.sel:e.catId||'outro';
-  var newPessId=pg&&pg.dataset.sel?pg.dataset.sel:e.pessoaId||'geral';
-  var newVal=vInput&&parseFloat(vInput.value)>0?parseFloat(vInput.value):e.val;
-  var newDesc=dInput?dInput.value.trim():e.desc;
-  var cot=e.cotacao||getCot()||1;
-  e.val=newVal;
-  e.desc=newDesc;
-  e.valUSD=e.moeda==='usd'?newVal:parseFloat((newVal/cot).toFixed(2));
-  e.valBRL=e.moeda==='brl'?newVal:parseFloat((newVal*cot).toFixed(2));
-  e.catId=newCatId;e.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;
-  e.pessoaId=newPessId;e.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;
-  exps[ei]=e;data.stops[si].exps=exps;
-  saveDay(date,data);refreshDay(wi,di);
-}
-
-function saveEditAv(date,ai,wi,di,fid){
-  var data=loadDay(date);
-  var avs=getAvs(data);
-  var a=avs[ai];if(!a) return;
-  var cg=document.getElementById(fid+'-cats');
-  var pg=document.getElementById(fid+'-pess');
-  var vInput=document.getElementById(fid+'-val');
-  var dInput=document.getElementById(fid+'-desc');
-  var newCatId=cg&&cg.dataset.sel?cg.dataset.sel:a.catId||'outro';
-  var newPessId=pg&&pg.dataset.sel?pg.dataset.sel:a.pessoaId||'geral';
-  var newVal=vInput&&parseFloat(vInput.value)>0?parseFloat(vInput.value):a.val;
-  var newDesc=dInput?dInput.value.trim():a.desc;
-  var cot=a.cotacao||getCot()||1;
-  a.val=newVal;
-  a.desc=newDesc;
-  a.valUSD=a.moeda==='usd'?newVal:parseFloat((newVal/cot).toFixed(2));
-  a.valBRL=a.moeda==='brl'?newVal:parseFloat((newVal*cot).toFixed(2));
-  a.catId=newCatId;a.cat=(CATS.find(function(c){return c.id===newCatId;})||{label:'Outros'}).label;
-  a.pessoaId=newPessId;a.pessoaLabel=(PESSOAS.find(function(p){return p.id===newPessId;})||{label:'Geral'}).label;
-  avs[ai]=a;data.avulsos=avs;
-  saveDay(date,data);refreshDay(wi,di);
-}
-
-// Maps
 function openMaps(e,url){
   e.preventDefault();
   var q=encodeURIComponent(url.split('?q=')[1]||'');
@@ -829,12 +847,12 @@ function exportCSV(){
       if(d.roteiro && d.roteiro.stops){
         d.roteiro.stops.forEach(function(s,i){
           (getStop(data,i).exps||[]).forEach(function(e){
-            rows.push([d.date, w.label, e.pessoaLabel||"Geral", s.name, e.desc||"", (e.moeda||"usd").toUpperCase(), e.val, e.cotacao||"", e.valUSD||"", e.valBRL||""].join(","));
+            rows.push([d.date, w.label, e.pessoaLabel||"Geral", s.name, e.desc||"", (e.moeda||"usd").toUpperCase(), e.val, e.cotacao||"", e.valUSD||"", e.valBRL||"", e.pagto||"cash"].join(","));
           });
         });
       }
       getAvs(data).forEach(function(a){
-        rows.push([d.date, w.label, a.pessoaLabel||"Geral", a.cat, a.desc||"", (a.moeda||"usd").toUpperCase(), a.val, a.cotacao||"", a.valUSD||"", a.valBRL||""].join(","));
+        rows.push([d.date, w.label, a.pessoaLabel||"Geral", a.cat, a.desc||"", (a.moeda||"usd").toUpperCase(), a.val, a.cotacao||"", a.valUSD||"", a.valBRL||"", a.pagto||"cash"].join(","));
       });
     });
   });
