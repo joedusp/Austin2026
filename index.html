@@ -1158,7 +1158,7 @@
               h += '<div class="exp-item">';
               h += '<div><span style="color:var(--mt)">' + (e.desc || 'Gasto') + '</span>';
               h += ' <span style="font-size:10px;color:' + pc.color + '">' + (e.pessoaLabel || 'Geral') + '</span>';
-              h += ' <span style="font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;' + (e.pagto === 'cc' ? 'background:rgba(122,159,224,.15);color:#7A9FE0' : 'background:rgba(212,168,67,.15);color:#D4A843') + '">' + (e.pagto === 'cc' ? 'CC' : 'CASH') + '</span></div>';
+              h += ' <span style="font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;' + (e.pagto === 'cc_itau' ? 'background:rgba(236,120,46,.15);color:#EC782E' : e.pagto === 'cc_rico' ? 'background:rgba(122,159,224,.15);color:#7A9FE0' : 'background:rgba(212,168,67,.15);color:#D4A843') + '">' + (e.pagto === 'cc_itau' ? 'Itau' : e.pagto === 'cc_rico' ? 'Rico' : 'CASH') + '</span></div>';
               h += '<div style="display:flex;align-items:center;gap:4px"><div style="text-align:right">';
               h += '<span class="exp-val">' + (e.moeda === 'brl' ? fmtR(e.val) : fmt(e.val)) + '</span>';
               if (e.moeda === 'brl' && e.valUSD) h += '<div class="exp-sub">~$' + e.valUSD + '</div>';
@@ -1196,7 +1196,7 @@
         var pc = PESSOAS.find(function (p) { return p.id === a.pessoaId; }) || { color: 'var(--gold)' };
         h += '<div class="av-item"><div><div>' + a.cat + (a.desc ? ' - ' + a.desc : '') + '</div>';
         h += '<div style="font-size:10px;color:var(--mt)">' + d.date + ' <span style="color:' + pc.color + '">' + (a.pessoaLabel || 'Geral') + '</span>';
-        h += ' <span style="font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;' + (a.pagto === 'cc' ? 'background:rgba(122,159,224,.15);color:#7A9FE0' : 'background:rgba(212,168,67,.15);color:#D4A843') + '">' + (a.pagto === 'cc' ? 'CC' : 'CASH') + '</span></div></div>';
+        h += ' <span style="font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;' + (a.pagto === 'cc_itau' ? 'background:rgba(236,120,46,.15);color:#EC782E' : a.pagto === 'cc_rico' ? 'background:rgba(122,159,224,.15);color:#7A9FE0' : 'background:rgba(212,168,67,.15);color:#D4A843') + '">' + (a.pagto === 'cc_itau' ? 'Itau' : a.pagto === 'cc_rico' ? 'Rico' : 'CASH') + '</span></div></div>';
         h += '<div style="display:flex;align-items:center;gap:4px"><div style="text-align:right">';
         h += '<span style="color:var(--gr);font-weight:500">' + (a.moeda === 'brl' ? fmtR(a.val) : fmt(a.val)) + '</span>';
         if (a.moeda === 'brl' && a.valUSD) h += '<div class="exp-sub">~$' + a.valUSD + '</div>';
@@ -1217,7 +1217,8 @@
       var p = selPagto[key] || 'cash';
       return '<div class="sel-row">'
         + '<button class="sel-btn' + (p === 'cash' ? ' on-cash' : '') + '" onclick="setSel(\'pagto\',\'' + key + '\',\'cash\',' + wi + ',' + di + ')" style="' + (p === 'cash' ? 'border-color:#D4A843;color:#D4A843' : '') + '" title="Dinheiro">$ Cash</button>'
-        + '<button class="sel-btn' + (p === 'cc' ? ' on-cc' : '') + '" onclick="setSel(\'pagto\',\'' + key + '\',\'cc\',' + wi + ',' + di + ')" style="' + (p === 'cc' ? 'border-color:#7A9FE0;color:#7A9FE0' : '') + '" title="Cartao de credito">CC</button>'
+        + '<button class="sel-btn' + (p === 'cc_itau' ? ' on-cc' : '') + '" onclick="setSel(\'pagto\',\'' + key + '\',\'cc_itau\',' + wi + ',' + di + ')" style="' + (p === 'cc_itau' ? 'border-color:#EC782E;color:#EC782E' : '') + '" title="CC Itau">CC Itau</button>'
+        + '<button class="sel-btn' + (p === 'cc_rico' ? ' on-cc' : '') + '" onclick="setSel(\'pagto\',\'' + key + '\',\'cc_rico\',' + wi + ',' + di + ')" style="' + (p === 'cc_rico' ? 'border-color:#7A9FE0;color:#7A9FE0' : '') + '" title="CC Rico">CC Rico</button>'
         + '</div>';
     }
 
@@ -1388,16 +1389,16 @@
       });
       form.appendChild(pr);
       var curPagto = pagto || 'cash';
+      var PAGTOS = [{ id: 'cash', label: '$ Cash', color: '#D4A843' }, { id: 'cc_itau', label: 'CC Itau', color: '#EC782E' }, { id: 'cc_rico', label: 'CC Rico', color: '#7A9FE0' }];
       var pgRow = document.createElement('div'); pgRow.className = 'sel-row'; pgRow.id = fid + '-pagto'; pgRow.dataset.sel = curPagto;
-      var bCash = document.createElement('button'); bCash.className = 'sel-btn' + (curPagto === 'cash' ? ' on-cash' : '');
-      if (curPagto === 'cash') { bCash.style.borderColor = '#D4A843'; bCash.style.color = '#D4A843'; }
-      bCash.textContent = '$ Cash';
-      bCash.onclick = function () { edTogPagto(fid, 'cash', bCash); };
-      var bCC = document.createElement('button'); bCC.className = 'sel-btn' + (curPagto === 'cc' ? ' on-cc' : '');
-      if (curPagto === 'cc') { bCC.style.borderColor = '#7A9FE0'; bCC.style.color = '#7A9FE0'; }
-      bCC.textContent = 'CC';
-      bCC.onclick = function () { edTogPagto(fid, 'cc', bCC); };
-      pgRow.appendChild(bCash); pgRow.appendChild(bCC);
+      PAGTOS.forEach(function (pg) {
+        var on = curPagto === pg.id;
+        var b = document.createElement('button'); b.className = 'sel-btn' + (on ? (pg.id === 'cash' ? ' on-cash' : ' on-cc') : '');
+        if (on) { b.style.borderColor = pg.color; b.style.color = pg.color; }
+        b.textContent = pg.label;
+        b.onclick = (function (id, color, btn) { return function () { edTogPagto(fid, id, color, btn); }; })(pg.id, pg.color, b);
+        pgRow.appendChild(b);
+      });
       form.appendChild(pgRow);
       var br = document.createElement('div'); br.style.cssText = 'display:flex;gap:6px;margin-top:8px';
       var bS = document.createElement('button'); bS.className = 'btn-save'; bS.textContent = 'Salvar';
@@ -1481,13 +1482,13 @@
       var r = document.getElementById(fid + '-pess');
       if (r) { r.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); b.style.borderColor = ''; b.style.color = ''; }); btn.classList.add('on'); btn.style.borderColor = color; btn.style.color = color; r.dataset.sel = id; }
     }
-    function edTogPagto(fid, val, btn) {
+    function edTogPagto(fid, val, color, btn) {
       var r = document.getElementById(fid + '-pagto');
       if (r) {
         r.querySelectorAll('button').forEach(function (b) { b.classList.remove('on-cash'); b.classList.remove('on-cc'); b.style.borderColor = ''; b.style.color = ''; });
         btn.classList.add(val === 'cash' ? 'on-cash' : 'on-cc');
-        btn.style.borderColor = val === 'cash' ? '#D4A843' : '#7A9FE0';
-        btn.style.color = val === 'cash' ? '#D4A843' : '#7A9FE0';
+        btn.style.borderColor = color;
+        btn.style.color = color;
         r.dataset.sel = val;
       }
     }
@@ -1566,6 +1567,32 @@
 
       h += '<div class="rel-sec"><div class="rel-title">Por categoria</div>';
       CATS.forEach(function (c) { h += '<div class="rel-row"><span>' + c.label + '</span><div class="bar-wrap"><div class="bar" style="width:' + (catU[c.id] / maxC * 100).toFixed(0) + '%"></div></div><div style="text-align:right"><div class="rel-val">' + fmt(catU[c.id]) + '</div><div class="rel-sub">' + fmtR(catB[c.id]) + '</div></div></div>'; });
+      h += '</div>';
+
+      // Relatorio por meio de pagamento
+      var pgU = { cash: 0, cc_itau: 0, cc_rico: 0 }, pgB = { cash: 0, cc_itau: 0, cc_rico: 0 };
+      ALL_DAYS.forEach(function (d) {
+        var data = loadDay(d.date);
+        if (d.roteiro && d.roteiro.stops) d.roteiro.stops.forEach(function (_, i) {
+          (getStop(data, i).exps || []).forEach(function (e) {
+            var pk = e.pagto === 'cc_itau' ? 'cc_itau' : e.pagto === 'cc_rico' ? 'cc_rico' : e.pagto === 'cc' ? 'cc_itau' : 'cash';
+            pgU[pk] += vU(e); pgB[pk] += vB(e);
+          });
+        });
+        getAvs(data).forEach(function (a) {
+          var pk = a.pagto === 'cc_itau' ? 'cc_itau' : a.pagto === 'cc_rico' ? 'cc_rico' : a.pagto === 'cc' ? 'cc_itau' : 'cash';
+          pgU[pk] += vU(a); pgB[pk] += vB(a);
+        });
+      });
+      var maxPg = Math.max(pgU.cash, pgU.cc_itau, pgU.cc_rico, 0.01);
+      var PAGTO_INFO = [{ id: 'cash', label: 'Cash', color: '#D4A843' }, { id: 'cc_itau', label: 'CC Itau', color: '#EC782E' }, { id: 'cc_rico', label: 'CC Rico', color: '#7A9FE0' }];
+      h += '<div class="rel-sec"><div class="rel-title">Por meio de pagamento</div>';
+      PAGTO_INFO.forEach(function (pg) {
+        h += '<div class="rel-row"><span>' + pg.label + '</span><div class="bar-wrap"><div class="bar" style="width:' + (pgU[pg.id] / maxPg * 100).toFixed(0) + '%;background:' + pg.color + '"></div></div>';
+        h += '<div style="text-align:right"><div class="rel-val" style="color:' + pg.color + '">' + fmt(pgU[pg.id]) + '</div><div class="rel-sub">' + fmtR(pgB[pg.id]) + '</div></div></div>';
+      });
+      var totalCC = pgU.cc_itau + pgU.cc_rico;
+      h += '<div class="rel-row" style="border-top:1px solid var(--bd);margin-top:4px;padding-top:6px"><span style="color:var(--mt);font-size:11px">Total Cartoes</span><div style="text-align:right"><div class="rel-val" style="font-size:12px">' + fmt(totalCC) + '</div><div class="rel-sub">' + fmtR(pgB.cc_itau + pgB.cc_rico) + '</div></div></div>';
       h += '</div>';
 
       h += '<div class="rel-sec"><div class="rel-title">Filtrar por categoria</div><div class="filter-row">';
