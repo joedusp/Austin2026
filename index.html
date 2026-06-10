@@ -457,8 +457,8 @@ function renderDayContent(d,wi,di){
 function mkPagto(key,wi,di){
   var p=selPagto[key]||'cash';
   return '<div class="sel-row">'
-    +'<button class="sel-btn'+(p==='cash'?' on-cash':'')+'" onclick="setSel('pagto',''+key+'','cash','+wi+','+di+')" style="'+(p==='cash'?'border-color:#D4A843;color:#D4A843':'')+'" title="Dinheiro">$ Cash</button>'
-    +'<button class="sel-btn'+(p==='cc'?' on-cc':'')+'" onclick="setSel('pagto',''+key+'','cc','+wi+','+di+')" style="'+(p==='cc'?'border-color:#7A9FE0;color:#7A9FE0':'')+'" title="Cartao de credito">CC</button>'
+    +'<button class="sel-btn'+(p==='cash'?' on-cash':'')+'" onclick="setSel(\'pagto\',\''+key+'\',\'cash\','+wi+','+di+')" style="'+(p==='cash'?'border-color:#D4A843;color:#D4A843':'')+'" title="Dinheiro">$ Cash</button>'
+    +'<button class="sel-btn'+(p==='cc'?' on-cc':'')+'" onclick="setSel(\'pagto\',\''+key+'\',\'cc\','+wi+','+di+')" style="'+(p==='cc'?'border-color:#7A9FE0;color:#7A9FE0':'')+'" title="Cartao de credito">CC</button>'
     +'</div>';
 }
 
